@@ -169,6 +169,7 @@ body {
     position: relative;
     box-shadow: 0 4px 12px var(--shadow);
     transition: transform 0.2s ease, opacity 0.2s ease, background 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
 }
 
 .card:hover {
@@ -177,6 +178,21 @@ body {
 
 .card.hidden {
     display: none;
+}
+
+.featured-badge {
+    position: absolute;
+    top: 12px;
+    right: -28px;
+    background: #f1c40f;
+    color: #1a1a2e;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 35px;
+    transform: rotate(45deg);
+    z-index: 2;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .card-border-top {
@@ -597,6 +613,8 @@ body {
     color: var(--text-muted);
     font-size: 13px;
     font-weight: 500;
+    flex-shrink: 0;
+    margin-right: 12px;
 }
 
 .info-value {
@@ -606,6 +624,14 @@ body {
     text-align: right;
     word-break: break-all;
     transition: color 0.3s ease;
+}
+
+.info-value-desc {
+    font-weight: 400;
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: left;
+    max-width: 240px;
 }
 
 /* Responsive */

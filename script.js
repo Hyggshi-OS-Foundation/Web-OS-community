@@ -39,9 +39,15 @@ function buildCards() {
         card.setAttribute('data-author', os.author || 'Unknown');
         card.setAttribute('data-repo', os.repo || 'N/A');
         card.setAttribute('data-foundation', os.foundation || 'N/A');
+        card.setAttribute('data-description', os.description || '');
+        card.setAttribute('data-version', os.version || '');
+        card.setAttribute('data-featured', os.featured ? 'true' : 'false');
         card.setAttribute('data-tags', tagsStr);
 
+        const featuredBadge = os.featured ? '<div class="featured-badge">⭐ Featured</div>' : '';
+
         card.innerHTML = `
+            ${featuredBadge}
             <div class="card-border-top"></div>
             <div class="img">
                 <img src="${os.icon}" alt="${os.name}" onerror="this.src='images/placeholder.png'">
@@ -261,11 +267,17 @@ function showInfoModal(btn) {
 
     pendingRepo = 'https://github.com/' + author + '/' + repo;
 
+    const description = card.getAttribute('data-description') || '';
+    const version = card.getAttribute('data-version') || '';
+
     document.getElementById('infoModalLogo').src = imgSrc;
     document.getElementById('infoModalTitle').textContent = name;
     document.getElementById('infoAuthor').textContent = author;
     document.getElementById('infoRepo').textContent = repo;
     document.getElementById('infoFoundation').textContent = foundation;
+    document.getElementById('infoVersion').textContent = version;
+    document.getElementById('infoDescription').textContent = description;
+    document.getElementById('infoDescriptionRow').style.display = description ? 'flex' : 'none';
 
     if (date) {
         document.getElementById('infoDate').textContent = date;
