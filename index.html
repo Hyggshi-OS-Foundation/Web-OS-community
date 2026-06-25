@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web OS Cards</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="theme-toggle" onclick="toggleTheme()">
+        <span id="themeIcon">☀️</span>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>Web version of all OS</h1>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search for OS.." oninput="filterCards()">
+            </div>
+            <div class="tag-filters" id="tagFilters"></div>
+        </div>
+    <div class="cards-grid" id="cardsGrid"></div>
+
+        <div class="footer">
+            <p>Want your project to be visible here?</p>
+            <p>Send your project to us on <a href="https://github.com/Hyggshi-OS-Foundation/Web-OS-community" target="_blank">GitHub</a></p>
+        </div>
+    </div>
+
+    <!-- Launch Modal -->
+    <div class="modal-overlay" id="launchModal">
+        <div class="modal-content modal-lg">
+            <button class="modal-close" onclick="hideLaunchModal()">&times;</button>
+            <div class="modal-header">
+                <div class="modal-logo">
+                    <img id="modalLogo" src="images/os.png" alt="logo">
+                </div>
+                <div>
+                    <h2 id="modalTitle">Launching AvdanOS</h2>
+                    <p id="modalDesc">Preview the OS before launching</p>
+                </div>
+            </div>
+            <div class="preview-header">
+                <span class="preview-label">🔴 LIVE PREVIEW</span>
+            </div>
+            <div class="modal-preview">
+                <iframe id="modalIframe" src="" sandbox="allow-scripts allow-same-origin allow-forms" loading="lazy"></iframe>
+                <div class="preview-loading" id="previewLoading">Loading preview...</div>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-cancel" onclick="hideLaunchModal()">Cancel</button>
+                <button class="modal-btn modal-btn-launch" id="modalLaunchBtn">Launch</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div class="modal-overlay" id="infoModal">
+        <div class="modal-content modal-sm">
+            <button class="modal-close" onclick="hideInfoModal()">&times;</button>
+            <div class="modal-header">
+                <div class="modal-logo">
+                    <img id="infoModalLogo" src="images/os.png" alt="logo">
+                </div>
+                <div>
+                    <h2 id="infoModalTitle">AvdanOS</h2>
+                    <p id="infoModalDesc">Project Information</p>
+                </div>
+            </div>
+            <div class="info-details">
+                <div class="info-row">
+                    <span class="info-label">Author</span>
+                    <span class="info-value" id="infoAuthor">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Repository</span>
+                    <span class="info-value" id="infoRepo">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Foundation</span>
+                    <span class="info-value" id="infoFoundation">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Created</span>
+                    <span class="info-value" id="infoDate">-</span>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-cancel" onclick="hideInfoModal()">Close</button>
+                <button class="modal-btn modal-btn-launch" id="infoRepoBtn" onclick="openInfoRepo()">View on GitHub</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="os-list.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
