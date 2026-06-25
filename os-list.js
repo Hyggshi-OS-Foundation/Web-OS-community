@@ -19,7 +19,7 @@ const osList = [
     author: "HyggshiOSDeveloper",
     repo: "hyggshi-os-website",
     foundation: "Hyggshi-OS-Foundation",
-    tags: ["webos", "full", "modern", "cloudflare", "netlify"],
+    tags: ["webos", "full", "modern", "cloudflare"],
     links: [
       { label: "View Web OS in Pages", url: "https://hyggshiosdeveloper.github.io/hyggshi-os-website/OSmain.html" },
       { label: "View Web OS in cloudflare", url: "https://hyggshi-os-website.pages.dev/OSmain" }
