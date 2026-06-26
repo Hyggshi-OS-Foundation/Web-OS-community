@@ -529,36 +529,6 @@ body {
     }
 }
 
-/* Auth Modal */
-.auth-tabs {
-    display: flex;
-    gap: 0;
-    margin-bottom: 20px;
-    border-bottom: 2px solid var(--card-border);
-}
-
-.auth-tab {
-    flex: 1;
-    padding: 10px;
-    border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-}
-
-.auth-tab:hover {
-    color: var(--text);
-}
-
-.auth-tab.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
-}
 
 /* Modal styles */
 .modal-overlay {
