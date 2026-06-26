@@ -112,6 +112,12 @@
             <h2 class="form-title">📦 Submit Your Web OS</h2>
             <p class="form-subtitle">Fill in the details below to add your project to the collection.</p>
             <form id="submitForm" onsubmit="submitProject(event)">
+                <!-- Anti-spam honeypot field (hidden from users) -->
+                <div class="form-group form-full" style="height: 0; overflow: hidden; opacity: 0; position: absolute;">
+                    <label for="formWebsite">Website (do not fill)</label>
+                    <input type="text" id="formWebsite" name="website" tabindex="-1" autocomplete="off">
+                </div>
+                
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="formName">OS Name *</label>
@@ -153,6 +159,10 @@
                         <label for="formLinks">Links (one per line: Label | URL)</label>
                         <textarea id="formLinks" rows="3" placeholder="Main | https://...&#10;Dev | https://..."></textarea>
                     </div>
+                </div>
+                <div class="form-group form-full">
+                    <label for="formVerify">Verification: <span id="verifyQuestion"></span> *</label>
+                    <input type="text" id="formVerify" required placeholder="Your answer">
                 </div>
                 <div class="form-status" id="formStatus"></div>
                 <div class="modal-buttons">

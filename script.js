@@ -359,8 +359,41 @@ document.getElementById('infoModal').addEventListener('click', function(e) {
     if (e.target === this) hideInfoModal();
 });
 
+// Random math question state
+let verifyAnswer = 0;
+
+function generateVerifyQuestion() {
+    const ops = ['+', '-', '*'];
+    const op = ops[Math.floor(Math.random() * ops.length)];
+    let a, b, question;
+    
+    switch (op) {
+        case '+':
+            a = Math.floor(Math.random() * 50) + 5;
+            b = Math.floor(Math.random() * 50) + 5;
+            question = `What is ${a} + ${b}?`;
+            verifyAnswer = a + b;
+            break;
+        case '-':
+            a = Math.floor(Math.random() * 80) + 10;
+            b = Math.floor(Math.random() * a) + 1;
+            question = `What is ${a} - ${b}?`;
+            verifyAnswer = a - b;
+            break;
+        case '*':
+            a = Math.floor(Math.random() * 12) + 2;
+            b = Math.floor(Math.random() * 10) + 2;
+            question = `What is ${a} × ${b}?`;
+            verifyAnswer = a * b;
+            break;
+    }
+    
+    document.getElementById('verifyQuestion').textContent = question;
+}
+
 // === Submit Modal ===
 function showSubmitModal() {
+    generateVerifyQuestion();
     document.getElementById('submitModal').classList.add('show');
     document.getElementById('formStatus').style.display = 'none';
 }
@@ -378,6 +411,21 @@ async function submitProject(e) {
     e.preventDefault();
     const status = document.getElementById('formStatus');
     status.style.display = 'none';
+
+    // Anti-spam: Check honeypot field (should be empty)
+    const website = document.getElementById('formWebsite').value.trim();
+    if (website) {
+        console.warn('Spam detected: honeypot field filled');
+        showStatus(status, 'error', '❌ Spam detected. Please do not fill hidden fields.');
+        return;
+    }
+
+    // Anti-spam: Check verification question
+    const verify = document.getElementById('formVerify').value.trim();
+    if (parseInt(verify) !== verifyAnswer) {
+        showStatus(status, 'error', '❌ Verification failed. Please answer the math question correctly.');
+        return;
+    }
 
     const name = document.getElementById('formName').value.trim();
     const url = document.getElementById('formUrl').value.trim();
