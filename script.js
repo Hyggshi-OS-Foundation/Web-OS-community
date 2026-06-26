@@ -25,9 +25,8 @@ async function buildCards() {
     const grid = document.getElementById('cardsGrid');
     grid.innerHTML = '';
 
-    let projects = [...osList]; // fallback to static list
+    let projects = [...osList];
 
-    // Try fetch from Supabase if configured
     if (window.supabase) {
         try {
             const { data, error } = await window.supabase
@@ -65,6 +64,7 @@ async function buildCards() {
         card.setAttribute('data-platform', os.platform || 'Netlify');
         card.setAttribute('data-os-status', os.os_status || 'Stable');
         card.setAttribute('data-featured', os.featured ? 'true' : 'false');
+        card.setAttribute('data-owner', os.owner || os.submitter_username || os.username || os.author || 'Unknown');
         card.setAttribute('data-tags', tagsStr);
 
         const featuredBadge = os.featured ? '<div class="featured-badge">⭐ Featured</div>' : '';
@@ -117,6 +117,7 @@ function mapProjectToCard(p) {
         platform: p.platform || 'Netlify',
         os_status: p.os_status || 'Stable',
         featured: p.featured || false,
+        owner: p.submitter_username || p.owner || p.author || 'Unknown',
         tags: p.tags || [],
         links: links.length ? links : [{ label: 'Main', url: p.url }]
     };
@@ -279,20 +280,16 @@ function showLaunchModal(btn) {
     document.getElementById('modalLogo').src = imgSrc;
     document.getElementById('modalTitle').textContent = 'Launching ' + name;
     
-    // Check if running from file:// protocol
     const isFileProtocol = window.location.protocol === 'file:';
     
     if (isFileProtocol) {
-        // Show message that preview is not available in file mode
         document.getElementById('previewLoading').style.display = 'none';
         document.getElementById('modalIframe').style.display = 'none';
         document.getElementById('previewUnavailable').style.display = 'block';
         document.getElementById('previewUnavailable').querySelector('p:last-child').textContent = 'Preview not available in local mode. Click "Launch" to open in browser.';
-        // Change header to indicate local mode
         document.querySelector('.preview-label').textContent = '⚠️ PREVIEW UNAVAILABLE (LOCAL MODE)';
         document.querySelector('.preview-label').style.color = '#f1c40f';
     } else {
-        // Try to load iframe
         document.getElementById('previewLoading').style.display = 'block';
         document.getElementById('modalIframe').style.display = 'none';
         document.getElementById('previewUnavailable').style.display = 'none';
@@ -300,7 +297,6 @@ function showLaunchModal(btn) {
         const iframe = document.getElementById('modalIframe');
         iframe.src = url;
         
-        // Timeout: if iframe doesn't load in 3s, assume blocked
         setTimeout(() => {
             if (document.getElementById('previewLoading').style.display !== 'none') {
                 document.getElementById('previewLoading').style.display = 'none';
@@ -320,7 +316,6 @@ function hideLaunchModal() {
     document.getElementById('modalIframe').style.display = 'block';
     document.getElementById('previewLoading').style.display = 'none';
     document.getElementById('previewUnavailable').style.display = 'none';
-    // Reset preview label
     document.querySelector('.preview-label').textContent = '🔴 LIVE PREVIEW';
     document.querySelector('.preview-label').style.color = '';
     pendingUrl = '';
@@ -347,6 +342,7 @@ function showInfoModal(btn) {
     const imgSrc = card.getAttribute('data-img');
     const author = card.getAttribute('data-author') || 'Unknown';
     const repo = card.getAttribute('data-repo') || 'N/A';
+    const owner = card.getAttribute('data-owner') || 'Unknown';
     const foundation = card.getAttribute('data-foundation') || 'N/A';
     const date = card.getAttribute('data-date') || '';
 
@@ -361,6 +357,7 @@ function showInfoModal(btn) {
     document.getElementById('infoModalLogo').src = imgSrc;
     document.getElementById('infoModalTitle').textContent = name;
     document.getElementById('infoAuthor').textContent = author;
+    document.getElementById('infoOwner').textContent = owner;
     document.getElementById('infoRepo').textContent = repo;
     document.getElementById('infoFoundation').textContent = foundation;
     document.getElementById('infoVersion').textContent = version;
@@ -415,13 +412,11 @@ async function showLicenseModal() {
     const modal = document.getElementById('licenseModal');
     const content = document.getElementById('licenseContent');
     
-    // Load license content if not already loaded
     if (!content.innerHTML.trim()) {
         try {
             const response = await fetch('license/hosl-1.3.html');
             if (response.ok) {
                 const html = await response.text();
-                // Extract body content
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
                 const bodyContent = doc.body.innerHTML;
@@ -480,6 +475,13 @@ function generateVerifyQuestion() {
 
 // === Submit Modal ===
 function showSubmitModal() {
+    if (!getCurrentUser()) {
+        showAccountModal();
+        const status = document.getElementById('signInStatus');
+        showStatus(status, 'error', '❌ Please create an account or sign in before submitting a project.');
+        return;
+    }
+
     generateVerifyQuestion();
     document.getElementById('submitModal').classList.add('show');
     document.getElementById('formStatus').style.display = 'none';
@@ -499,7 +501,16 @@ async function submitProject(e) {
     const status = document.getElementById('formStatus');
     status.style.display = 'none';
 
-    // Anti-spam: Check honeypot field (should be empty)
+    const user = getCurrentUser();
+    if (!user) {
+        showStatus(status, 'error', '❌ Please create an account or sign in before submitting a project.');
+        setTimeout(() => {
+            hideSubmitModal();
+            showAccountModal();
+        }, 900);
+        return;
+    }
+
     const website = document.getElementById('formWebsite').value.trim();
     if (website) {
         console.warn('Spam detected: honeypot field filled');
@@ -507,7 +518,6 @@ async function submitProject(e) {
         return;
     }
 
-    // Anti-spam: Check verification question
     const verify = document.getElementById('formVerify').value.trim();
     if (parseInt(verify) !== verifyAnswer) {
         showStatus(status, 'error', '❌ Verification failed. Please answer the math question correctly.');
@@ -520,14 +530,12 @@ async function submitProject(e) {
     const author = document.getElementById('formAuthor').value.trim();
     const repo = document.getElementById('formRepo').value.trim();
     
-    // Check if GitHub credentials are fake/malicious
     const pathTraversalRegex = /(\.\.\/|\.\.\\)/i;
     if (pathTraversalRegex.test(author) || pathTraversalRegex.test(repo)) {
         showStatus(status, 'error', '❌ Invalid GitHub credentials detected.');
         return;
     }
 
-    // Verify GitHub repo actually exists
     showStatus(status, 'processing', '⏳ Verifying GitHub repository...');
     
     try {
@@ -540,7 +548,6 @@ async function submitProject(e) {
                 showStatus(status, 'error', '❌ GitHub repository not found. Please verify your GitHub username and repository name are correct and public.');
                 return;
             } else if (ghResponse.status === 403) {
-                // Rate limited - allow submission but log warning
                 console.warn('GitHub API rate limited, skipping verification');
             } else {
                 showStatus(status, 'error', '❌ GitHub verification failed (HTTP ' + ghResponse.status + '). Please try again.');
@@ -598,11 +605,8 @@ async function submitProject(e) {
             throw new Error('Supabase chưa được cấu hình. Vui lòng liên hệ admin.');
         }
 
-        // Get current user if logged in
-        const { data: { session } } = await window.supabase.auth.getSession();
-        if (session) {
-            payload.user_id = session.user.id;
-        }
+        payload.submitter_id = user.id;
+        payload.submitter_username = user.username;
 
         console.log('Submitting payload:', payload);
 
@@ -632,7 +636,7 @@ function showStatus(el, type, msg) {
     el.style.display = 'block';
 }
 
-// === Account Modal ===
+// === Account Modal (Custom Auth via RPC) ===
 function showAccountModal() {
     updateAuthUI();
     document.getElementById('accountModal').classList.add('show');
@@ -648,31 +652,13 @@ document.getElementById('accountModal').addEventListener('click', function(e) {
     if (e.target === this) hideAccountModal();
 });
 
-// Generate random color for banner
-function getRandomColor() {
-    const colors = [
-        'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-        'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-        'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-        'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-        'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
-        'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
-        'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
-        'linear-gradient(135deg, #ff6e7f 0%, #bfe9ff 100%)',
-        'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)'
-    ];
-    return colors[Math.floor(Math.random() * colors.length)];
-}
-
-// Get initials from email
-function getInitials(email) {
-    if (!email) return '?';
-    const parts = email.split('@')[0].split(/[._-]/);
+function getInitials(username) {
+    if (!username) return '?';
+    const parts = username.split(/[._-]/);
     if (parts.length >= 2) {
         return (parts[0][0] + parts[1][0]).toUpperCase();
     }
-    return email.substring(0, 2).toUpperCase();
+    return username.substring(0, 2).toUpperCase();
 }
 
 async function updateAuthUI() {
@@ -683,27 +669,22 @@ async function updateAuthUI() {
         return;
     }
 
-    const { data: { session } } = await window.supabase.auth.getSession();
+    const user = getCurrentUser();
     
-    if (session) {
+    if (user) {
         document.getElementById('authForms').style.display = 'none';
         document.getElementById('loggedInView').style.display = 'block';
         
-        // Set random banner color
         const banner = document.getElementById('profileBanner');
-        banner.style.background = getRandomColor();
+        banner.style.background = `linear-gradient(135deg, ${user.color} 0%, #333 100%)`;
         
-        // Set avatar with initials
         const avatar = document.getElementById('profileAvatar');
-        avatar.textContent = getInitials(session.user.email);
+        avatar.textContent = getInitials(user.username);
         
-        // Set username from email (part before @)
-        const username = session.user.email.split('@')[0];
-        document.getElementById('userName').textContent = username;
-        
-        // Set email
-        document.getElementById('userEmail').textContent = session.user.email;
-        document.getElementById('accountStatusText').textContent = 'You are signed in';
+        document.getElementById('userName').textContent = user.username;
+        document.getElementById('userBio').textContent = user.bio || 'No bio yet';
+        document.getElementById('userColor').textContent = '🎨 Color: ' + user.color;
+        document.getElementById('accountStatusText').textContent = 'Signed in as ' + user.username;
     } else {
         document.getElementById('authForms').style.display = 'block';
         document.getElementById('loggedInView').style.display = 'none';
@@ -716,7 +697,7 @@ async function signIn(e) {
     const status = document.getElementById('signInStatus');
     status.style.display = 'none';
 
-    const email = document.getElementById('signInEmail').value.trim();
+    const username = document.getElementById('signInUsername').value.trim();
     const password = document.getElementById('signInPassword').value;
 
     if (!window.supabase) {
@@ -725,31 +706,35 @@ async function signIn(e) {
     }
 
     try {
-        const { data, error } = await window.supabase.auth.signInWithPassword({
-            email: email,
-            password: password,
+        const result = await callRPC('signin', {
+            p_username: username,
+            p_password: password
         });
 
-        if (error) {
-            console.error('Sign in error:', error);
-            if (error.message.includes('Invalid login credentials')) {
-                showStatus(status, 'error', '❌ Invalid email or password.');
-            } else {
-                showStatus(status, 'error', '❌ ' + error.message);
-            }
+        if (!result.success) {
+            showStatus(status, 'error', '❌ ' + result.error);
             return;
         }
 
-        console.log('Sign in success:', data);
-        showStatus(status, 'success', '✅ Signed in successfully!');
+        console.log('Sign in success:', result.user);
+        saveUserSession(result.user);
+        
+        showStatus(status, 'success', '✅ Welcome back, ' + result.user.username + '!');
         setTimeout(() => {
             hideAccountModal();
             updateAccountIcon(true);
-        }, 1000);
+            window.location.reload();
+        }, 800);
     } catch (err) {
         console.error('Sign in error:', err);
-        showStatus(status, 'error', '❌ Sign in failed. Please try again.');
+        showStatus(status, 'error', '❌ ' + formatSupabaseError(err, 'Sign in failed.'));
     }
+}
+
+function formatSupabaseError(err, fallback) {
+    if (!err) return fallback;
+    const parts = [err.message, err.details, err.hint, err.code].filter(Boolean);
+    return parts.length ? parts.join(' ') : fallback;
 }
 
 async function signUp(e) {
@@ -757,7 +742,7 @@ async function signUp(e) {
     const status = document.getElementById('signUpStatus');
     status.style.display = 'none';
 
-    const email = document.getElementById('signUpEmail').value.trim();
+    const username = document.getElementById('signUpUsername').value.trim();
     const password = document.getElementById('signUpPassword').value;
 
     if (!window.supabase) {
@@ -770,82 +755,54 @@ async function signUp(e) {
         return;
     }
 
+    if (username.length < 3) {
+        showStatus(status, 'error', '❌ Username must be at least 3 characters.');
+        return;
+    }
+
     try {
-        const { data, error } = await window.supabase.auth.signUp({
-            email: email,
-            password: password,
+        const result = await callRPC('signup', {
+            p_username: username,
+            p_password: password
         });
 
-        if (error) {
-            console.error('Sign up error:', error);
-            if (error.message.includes('already registered')) {
-                showStatus(status, 'error', '❌ This email is already registered. Please sign in instead.');
-            } else {
-                showStatus(status, 'error', '❌ ' + error.message);
-            }
+        if (!result.success) {
+            showStatus(status, 'error', '❌ ' + result.error);
             return;
         }
 
-        console.log('Sign up success:', data);
+        console.log('Sign up success:', result.user);
+        saveUserSession(result.user);
         
-        // Show creating account status
-        showStatus(status, 'info', '✅ Account created! Signing in...');
-        
-        // Auto sign in after account creation (handles both email_confirm on/off)
-        const { error: signInError } = await window.supabase.auth.signInWithPassword({
-            email: email,
-            password: password,
-        });
-        
-        if (signInError) {
-            console.error('Auto sign in error:', signInError);
-            showStatus(status, 'info', '✅ Account created! Please sign in with your password.');
-            document.getElementById('signUpEmail').value = '';
-            document.getElementById('signUpPassword').value = '';
-            document.getElementById('signInEmail').value = email;
-            document.getElementById('signInPassword').focus();
-            status.style.display = 'none';
-            const signInStatus = document.getElementById('signInStatus');
-            showStatus(signInStatus, 'info', '✅ Account created! Enter your password to continue.');
-            return;
-        }
-        
-        // Success! Reload page to refresh all data with new session
-        showStatus(status, 'success', '✅ Signed in! Reloading...');
+        showStatus(status, 'success', '✅ Welcome, ' + result.user.username + '!');
         setTimeout(() => {
+            hideAccountModal();
+            updateAccountIcon(true);
             window.location.reload();
         }, 800);
     } catch (err) {
         console.error('Sign up error:', err);
-        showStatus(status, 'error', '❌ Account creation failed. Please try again.');
+        showStatus(status, 'error', '❌ ' + formatSupabaseError(err, 'Account creation failed.'));
     }
 }
 
 async function signOut() {
-    if (!window.supabase) return;
+    console.log('Signing out user:', getCurrentUser()?.username);
+    clearUserSession();
+    hideAccountModal();
+    updateAccountIcon(false);
+    window.location.reload();
+}
 
-    try {
-        const { data, error } = await window.supabase.auth.signOut();
-        
-        // Note: 403 errors from supabase.js are expected when session has expired
-        // The Supabase library logs this to console, but we handle it gracefully
-        // by always updating the UI state regardless of the error
-        
-        console.log('Sign out attempted:', error ? 'with error (expected if session expired)' : 'success');
-        
-        // Always update UI, even if logout failed
-        hideAccountModal();
-        updateAccountIcon(false);
-        
-        // Only log non-403 errors as warnings
-        if (error && !error.message.includes('403')) {
-            console.warn('Sign out warning:', error.message);
-        }
-    } catch (err) {
-        console.error('Sign out error:', err);
-        // Still update UI even on error
-        hideAccountModal();
-        updateAccountIcon(false);
+function togglePassword(inputId, toggleEl) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    if (input.type === 'password') {
+        input.type = 'text';
+        toggleEl.textContent = '👁️‍🗨️';
+    } else {
+        input.type = 'password';
+        toggleEl.textContent = '👁️';
     }
 }
 
@@ -854,27 +811,10 @@ function updateAccountIcon(isLoggedIn) {
     icon.textContent = isLoggedIn ? '✅' : '👤';
 }
 
-// Listen for auth state changes
-if (window.supabase && window.supabase.auth) {
-    window.supabase.auth.onAuthStateChange((event, session) => {
-        console.log('Auth state changed:', event, session ? 'logged in' : 'logged out');
-        updateAccountIcon(!!session);
-        
-        // If user just signed in and modal is open, update the UI immediately
-        if (event === 'SIGNED_IN' && session) {
-            const modal = document.getElementById('accountModal');
-            if (modal.classList.contains('show')) {
-                updateAuthUI();
-            }
-        }
-    });
-}
-
 // === Init ===
 document.addEventListener('DOMContentLoaded', function() {
     buildCards();
     
-    // Footer button event listeners
     const submitBtn = document.querySelector('.footer-submit-btn');
     const licenseBtn = document.querySelector('.footer-license-btn');
     
@@ -894,10 +834,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Initialize account icon based on current session
-    if (window.supabase) {
-        window.supabase.auth.getSession().then(({ data: { session } }) => {
-            updateAccountIcon(!!session);
-        });
+    // Initialize account icon based on saved session
+    const user = getCurrentUser();
+    updateAccountIcon(!!user);
+    if (user) {
+        console.log('👤 User session restored:', user.username);
     }
 });
