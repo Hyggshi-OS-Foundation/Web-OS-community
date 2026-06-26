@@ -1,21 +1,40 @@
--- Create profiles table for user accounts
--- Run this in Supabase Dashboard > SQL Editor AFTER the first migration
-
-CREATE TABLE IF NOT EXISTS public.profiles (
-    id UUID REFERENCES auth.users(id) PRIMARY KEY,
+-- Create profiles table
+CREATE TABLE IF NOT EXISTS profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     username TEXT UNIQUE,
     display_name TEXT,
     avatar_url TEXT,
     bio TEXT,
     github_url TEXT,
-    zashi_linked BOOLEAN DEFAULT false,
-    zashi_username TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Auto-update updated_at
-CREATE OR REPLACE FUNCTION public.update_profiles_updated_at()
+-- Enable Row Level Security
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist (to allow re-running migration)
+DROP POLICY IF EXISTS "Public can view all profiles" ON profiles;
+DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+
+-- Policy: Public can view all profiles
+CREATE POLICY "Public can view all profiles"
+    ON profiles FOR SELECT
+    USING (true);
+
+-- Policy: Authenticated users can insert their own profile
+CREATE POLICY "Users can insert own profile"
+    ON profiles FOR INSERT
+    WITH CHECK (auth.uid() = id);
+
+-- Policy: Authenticated users can update their own profile
+CREATE POLICY "Users can update own profile"
+    ON profiles FOR UPDATE
+    USING (auth.uid() = id);
+
+-- Function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_profiles_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
@@ -23,55 +42,34 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS update_profiles_updated_at ON public.profiles;
+-- Drop trigger if exists (to allow re-running migration)
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
+
+-- Trigger to auto-update updated_at
 CREATE TRIGGER update_profiles_updated_at
-    BEFORE UPDATE ON public.profiles
+    BEFORE UPDATE ON profiles
     FOR EACH ROW
-    EXECUTE FUNCTION public.update_profiles_updated_at();
+    EXECUTE FUNCTION update_profiles_updated_at();
 
--- RLS for profiles
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+-- Drop trigger if exists (to allow re-running migration)
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
--- Anyone can view profiles
-CREATE POLICY "Public can view profiles"
-    ON public.profiles
-    FOR SELECT
-    USING (true);
-
--- Users can insert their own profile
-CREATE POLICY "Users can insert own profile"
-    ON public.profiles
-    FOR INSERT
-    WITH CHECK (auth.uid() = id);
-
--- Users can update their own profile
-CREATE POLICY "Users can update own profile"
-    ON public.profiles
-    FOR UPDATE
-    USING (auth.uid() = id);
-
--- Auto-create profile on signup (with error handling)
+-- Function to auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Only insert if profiles table exists
-    BEGIN
-        INSERT INTO public.profiles (id, username, display_name)
-        VALUES (
-            NEW.id,
-            NEW.raw_user_meta_data->>'username',
-            NEW.raw_user_meta_data->>'display_name'
-        );
-    EXCEPTION
-        WHEN undefined_table THEN
-            -- Profiles table doesn't exist yet, skip
-            NULL;
-    END;
+    INSERT INTO public.profiles (id, username, display_name, avatar_url)
+    VALUES (
+        NEW.id,
+        NEW.raw_user_meta_data->>'username',
+        NEW.raw_user_meta_data->>'full_name',
+        NEW.raw_user_meta_data->>'avatar_url'
+    );
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+-- Trigger to auto-create profile
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW

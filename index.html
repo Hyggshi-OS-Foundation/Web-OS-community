@@ -11,6 +11,10 @@
     <div class="theme-toggle" onclick="toggleTheme()">
         <span id="themeIcon">☀️</span>
     </div>
+    
+    <div class="account-toggle" onclick="showAccountModal()">
+        <span id="accountIcon">👤</span>
+    </div>
 
     <div class="container">
         <div class="header">
@@ -20,14 +24,17 @@
             </div>
             <div class="tag-filters" id="tagFilters"></div>
         </div>
-    <div class="cards-grid" id="cardsGrid"></div>
+        <div class="cards-grid" id="cardsGrid"></div>
 
         <div class="footer">
             <p>Want your project to be visible here?</p>
             <p>
                 <a href="https://github.com/Hyggshi-OS-Foundation/Web-OS-community" target="_blank">GitHub</a>
+            </p>
+            <p>
+                <button type="button" class="footer-link-btn" onclick="showSubmitModal()">Submit Project</button>
                 <span class="footer-sep">•</span>
-                <a href="#" onclick="event.preventDefault(); showSubmitModal()">Submit Project</a>
+                <button type="button" class="footer-link-btn" onclick="showLicenseModal()">HOSL-1.3 License</button>
             </p>
         </div>
     </div>
@@ -51,6 +58,11 @@
             <div class="modal-preview">
                 <iframe id="modalIframe" src="" sandbox="allow-scripts allow-same-origin allow-forms" loading="lazy"></iframe>
                 <div class="preview-loading" id="previewLoading">Loading preview...</div>
+                <div class="preview-unavailable" id="previewUnavailable" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--text-muted);">
+                    <p style="font-size: 48px; margin-bottom: 10px;">⚠️</p>
+                    <p>Preview unavailable</p>
+                    <p style="font-size: 12px; margin-top: 5px;">The website may block embedding</p>
+                </div>
             </div>
             <div class="modal-buttons">
                 <button class="modal-btn modal-btn-cancel" onclick="hideLaunchModal()">Cancel</button>
@@ -94,6 +106,18 @@
                     <span class="info-value" id="infoVersion">-</span>
                 </div>
                 <div class="info-row">
+                    <span class="info-label">License</span>
+                    <span class="info-value" id="infoLicense">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Platform</span>
+                    <span class="info-value" id="infoPlatform">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Status</span>
+                    <span class="info-value" id="infoStatus">-</span>
+                </div>
+                <div class="info-row">
                     <span class="info-label">Created</span>
                     <span class="info-value" id="infoDate">-</span>
                 </div>
@@ -117,7 +141,7 @@
                     <label for="formWebsite">Website (do not fill)</label>
                     <input type="text" id="formWebsite" name="website" tabindex="-1" autocomplete="off">
                 </div>
-                
+
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="formName">OS Name *</label>
@@ -152,6 +176,33 @@
                         <input type="text" id="formVersion" placeholder="1.0">
                     </div>
                     <div class="form-group">
+                        <label for="formLicense">License</label>
+                        <select id="formLicense">
+                            <option value="MIT">MIT</option>
+                            <option value="GPL">GPL</option>
+                            <option value="Apache">Apache</option>
+                            <option value="Proprietary">Proprietary</option>
+                            <option value="HOSL-1.3 – Hyggshi OS License v1.3">HOSL-1.3 – Hyggshi OS License v1.3</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="formPlatform">Platform</label>
+                        <select id="formPlatform">
+                            <option value="Netlify">Netlify</option>
+                            <option value="Cloudflare">Cloudflare</option>
+                            <option value="GitHub Pages">GitHub Pages</option>
+                            <option value="Self-hosted">Self-hosted</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="formStatusSelect">Status</label>
+                        <select id="formStatusSelect">
+                            <option value="Stable">Stable</option>
+                            <option value="Beta">Beta</option>
+                            <option value="Experimental">Experimental</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="formTags">Tags (comma separated)</label>
                         <input type="text" id="formTags" placeholder="webos, demo, lightweight">
                     </div>
@@ -172,7 +223,85 @@
             </form>
         </div>
     </div>
+    <!-- ✅ submitModal đóng đúng chỗ, licenseModal nằm ngoài -->
 
+    <!-- License Modal -->
+    <div class="modal-overlay" id="licenseModal">
+        <div class="modal-content modal-lg" style="max-width: 900px;">
+            <button class="modal-close" onclick="hideLicenseModal()">&times;</button>
+            <h2 class="form-title">HOSL-1.3 – Hyggshi OS License v1.3</h2>
+            <div id="licenseContent" style="max-height: 70vh; overflow-y: auto; text-align: left; padding: 10px; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--card-border);">
+                <!-- Content will be loaded here -->
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-cancel" onclick="hideLicenseModal()">Close</button>
+                <button class="modal-btn modal-btn-launch" onclick="window.open('license/hosl-1.3.html', '_blank')">Open in new tab</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Modal -->
+    <div class="modal-overlay" id="accountModal">
+        <div class="modal-content modal-sm">
+            <button class="modal-close" onclick="hideAccountModal()">&times;</button>
+            <h2 class="form-title">👤 Account</h2>
+            <p class="form-subtitle" id="accountStatusText">Sign in or create an account</p>
+            
+            <div id="authForms">
+                <!-- Sign In Form -->
+                <form id="signInForm" onsubmit="signIn(event)">
+                    <div class="form-grid">
+                        <div class="form-group form-full">
+                            <label for="signInEmail">Email *</label>
+                            <input type="email" id="signInEmail" required placeholder="your@email.com">
+                        </div>
+                        <div class="form-group form-full">
+                            <label for="signInPassword">Password *</label>
+                            <input type="password" id="signInPassword" required placeholder="••••••••" minlength="6">
+                        </div>
+                    </div>
+                    <div class="form-status" id="signInStatus"></div>
+                    <div class="modal-buttons">
+                        <button type="button" class="modal-btn modal-btn-cancel" onclick="hideAccountModal()">Cancel</button>
+                        <button type="submit" class="modal-btn modal-btn-launch">Sign In</button>
+                    </div>
+                </form>
+
+                <!-- Sign Up Form -->
+                <form id="signUpForm" onsubmit="signUp(event)" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-light);">
+                    <div class="form-grid">
+                        <div class="form-group form-full">
+                            <label for="signUpEmail">Email *</label>
+                            <input type="email" id="signUpEmail" required placeholder="your@email.com">
+                        </div>
+                        <div class="form-group form-full">
+                            <label for="signUpPassword">Password *</label>
+                            <input type="password" id="signUpPassword" required placeholder="••••••••" minlength="6">
+                        </div>
+                    </div>
+                    <div class="form-status" id="signUpStatus"></div>
+                    <div class="modal-buttons">
+                        <button type="button" class="modal-btn modal-btn-cancel" onclick="hideAccountModal()">Cancel</button>
+                        <button type="submit" class="modal-btn modal-btn-launch">Create Account</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Logged In View -->
+            <div id="loggedInView" style="display: none;">
+                <div class="profile-banner" id="profileBanner"></div>
+                <div class="profile-avatar" id="profileAvatar"></div>
+                <div class="profile-info">
+                    <h3 id="userName" style="color: var(--text); font-size: 18px; font-weight: 700; margin-bottom: 4px;"></h3>
+                    <p id="userEmail" style="color: var(--text-secondary); font-size: 13px;"></p>
+                </div>
+                <div class="modal-buttons" style="margin-top: 20px;">
+                    <button type="button" class="modal-btn modal-btn-cancel" onclick="hideAccountModal()">Close</button>
+                    <button type="button" class="modal-btn modal-btn-launch" onclick="signOut()">Sign Out</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="os-list.js"></script>
     <script src="supabase.js"></script>

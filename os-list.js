@@ -9,6 +9,9 @@ const osList = [
     foundation: "DynamicCode1",
     description: "A modern web-based desktop experience built with web technologies. Lightweight and fast.",
     version: "0.3.0",
+    license: "MIT",
+    platform: "Netlify",
+    os_status: "Beta",
     featured: false,
     tags: ["webos", "demo", "lightweight", "netlify", "fork"],
     links: [
@@ -24,6 +27,9 @@ const osList = [
     foundation: "Hyggshi-OS-Foundation",
     description: "A full-featured web OS with a modern interface, supporting multiple apps and cloud deployment.",
     version: "1.3.0 Beta 26",
+    license: "HOSL-1.3 – Hyggshi OS License v1.3",
+    platform: "Cloudflare",
+    os_status: "Stable",
     featured: false,
     tags: ["webos", "full", "modern", "cloudflare", "independence"],
     links: [
@@ -45,6 +51,9 @@ const osList = [
     foundation: "Foundation Name",
     description: "A short description of your web OS.",
     version: "1.0",
+    license: "MIT",                  // MIT / GPL / Apache / Proprietary
+    platform: "Netlify",             // Netlify / Cloudflare / GitHub Pages / Self-hosted
+    os_status: "Stable",             // Stable / Beta / Experimental
     featured: false,
     tags: ["tag1", "tag2", "tag3"],
     links: [

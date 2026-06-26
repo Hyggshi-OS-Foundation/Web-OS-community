@@ -61,6 +61,9 @@ async function buildCards() {
         card.setAttribute('data-foundation', os.foundation || 'N/A');
         card.setAttribute('data-description', os.description || '');
         card.setAttribute('data-version', os.version || '');
+        card.setAttribute('data-license', os.license || 'MIT');
+        card.setAttribute('data-platform', os.platform || 'Netlify');
+        card.setAttribute('data-os-status', os.os_status || 'Stable');
         card.setAttribute('data-featured', os.featured ? 'true' : 'false');
         card.setAttribute('data-tags', tagsStr);
 
@@ -110,6 +113,9 @@ function mapProjectToCard(p) {
         foundation: p.foundation || 'N/A',
         description: p.description || '',
         version: p.version || '1.0',
+        license: p.license || 'MIT',
+        platform: p.platform || 'Netlify',
+        os_status: p.os_status || 'Stable',
         featured: p.featured || false,
         tags: p.tags || [],
         links: links.length ? links : [{ label: 'Main', url: p.url }]
@@ -272,19 +278,58 @@ function showLaunchModal(btn) {
     pendingUrl = url;
     document.getElementById('modalLogo').src = imgSrc;
     document.getElementById('modalTitle').textContent = 'Launching ' + name;
-    document.getElementById('modalIframe').src = url;
-    document.getElementById('previewLoading').style.display = 'block';
+    
+    // Check if running from file:// protocol
+    const isFileProtocol = window.location.protocol === 'file:';
+    
+    if (isFileProtocol) {
+        // Show message that preview is not available in file mode
+        document.getElementById('previewLoading').style.display = 'none';
+        document.getElementById('modalIframe').style.display = 'none';
+        document.getElementById('previewUnavailable').style.display = 'block';
+        document.getElementById('previewUnavailable').querySelector('p:last-child').textContent = 'Preview not available in local mode. Click "Launch" to open in browser.';
+        // Change header to indicate local mode
+        document.querySelector('.preview-label').textContent = '⚠️ PREVIEW UNAVAILABLE (LOCAL MODE)';
+        document.querySelector('.preview-label').style.color = '#f1c40f';
+    } else {
+        // Try to load iframe
+        document.getElementById('previewLoading').style.display = 'block';
+        document.getElementById('modalIframe').style.display = 'none';
+        document.getElementById('previewUnavailable').style.display = 'none';
+        
+        const iframe = document.getElementById('modalIframe');
+        iframe.src = url;
+        
+        // Timeout: if iframe doesn't load in 3s, assume blocked
+        setTimeout(() => {
+            if (document.getElementById('previewLoading').style.display !== 'none') {
+                document.getElementById('previewLoading').style.display = 'none';
+                document.getElementById('previewUnavailable').style.display = 'block';
+                iframe.src = '';
+                iframe.style.display = 'none';
+            }
+        }, 3000);
+    }
+    
     document.getElementById('launchModal').classList.add('show');
 }
 
 function hideLaunchModal() {
     document.getElementById('launchModal').classList.remove('show');
     document.getElementById('modalIframe').src = '';
+    document.getElementById('modalIframe').style.display = 'block';
+    document.getElementById('previewLoading').style.display = 'none';
+    document.getElementById('previewUnavailable').style.display = 'none';
+    // Reset preview label
+    document.querySelector('.preview-label').textContent = '🔴 LIVE PREVIEW';
+    document.querySelector('.preview-label').style.color = '';
     pendingUrl = '';
 }
 
 document.getElementById('modalIframe').addEventListener('load', function() {
     document.getElementById('previewLoading').style.display = 'none';
+    this.style.display = 'block';
+    document.getElementById('previewUnavailable').style.display = 'none';
 });
 
 document.getElementById('modalLaunchBtn').addEventListener('click', function() {
@@ -309,6 +354,9 @@ function showInfoModal(btn) {
 
     const description = card.getAttribute('data-description') || '';
     const version = card.getAttribute('data-version') || '';
+    const license = card.getAttribute('data-license') || 'MIT';
+    const platform = card.getAttribute('data-platform') || 'Netlify';
+    const osStatus = card.getAttribute('data-os-status') || 'Stable';
 
     document.getElementById('infoModalLogo').src = imgSrc;
     document.getElementById('infoModalTitle').textContent = name;
@@ -318,6 +366,9 @@ function showInfoModal(btn) {
     document.getElementById('infoVersion').textContent = version;
     document.getElementById('infoDescription').textContent = description;
     document.getElementById('infoDescriptionRow').style.display = description ? 'flex' : 'none';
+    document.getElementById('infoLicense').textContent = license;
+    document.getElementById('infoPlatform').textContent = platform;
+    document.getElementById('infoStatus').textContent = osStatus;
 
     if (date) {
         document.getElementById('infoDate').textContent = date;
@@ -357,6 +408,42 @@ function openInfoRepo() {
 
 document.getElementById('infoModal').addEventListener('click', function(e) {
     if (e.target === this) hideInfoModal();
+});
+
+// === License Modal ===
+async function showLicenseModal() {
+    const modal = document.getElementById('licenseModal');
+    const content = document.getElementById('licenseContent');
+    
+    // Load license content if not already loaded
+    if (!content.innerHTML.trim()) {
+        try {
+            const response = await fetch('license/hosl-1.3.html');
+            if (response.ok) {
+                const html = await response.text();
+                // Extract body content
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const bodyContent = doc.body.innerHTML;
+                content.innerHTML = bodyContent;
+            } else {
+                content.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 40px;">Failed to load license. <a href="license/hosl-1.3.html" target="_blank" style="color: var(--accent);">Open in new tab</a></p>';
+            }
+        } catch (err) {
+            console.error('Failed to load license:', err);
+            content.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 40px;">Failed to load license. <a href="license/hosl-1.3.html" target="_blank" style="color: var(--accent);">Open in new tab</a></p>';
+        }
+    }
+    
+    modal.classList.add('show');
+}
+
+function hideLicenseModal() {
+    document.getElementById('licenseModal').classList.remove('show');
+}
+
+document.getElementById('licenseModal').addEventListener('click', function(e) {
+    if (e.target === this) hideLicenseModal();
 });
 
 // Random math question state
@@ -432,9 +519,44 @@ async function submitProject(e) {
     const icon = document.getElementById('formIcon').value.trim();
     const author = document.getElementById('formAuthor').value.trim();
     const repo = document.getElementById('formRepo').value.trim();
+    
+    // Check if GitHub credentials are fake/malicious
+    const pathTraversalRegex = /(\.\.\/|\.\.\\)/i;
+    if (pathTraversalRegex.test(author) || pathTraversalRegex.test(repo)) {
+        showStatus(status, 'error', '❌ Invalid GitHub credentials detected.');
+        return;
+    }
+
+    // Verify GitHub repo actually exists
+    showStatus(status, 'processing', '⏳ Verifying GitHub repository...');
+    
+    try {
+        const ghResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(author)}/${encodeURIComponent(repo)}`, {
+            headers: { 'Accept': 'application/vnd.github.v3+json' }
+        });
+        
+        if (!ghResponse.ok) {
+            if (ghResponse.status === 404) {
+                showStatus(status, 'error', '❌ GitHub repository not found. Please verify your GitHub username and repository name are correct and public.');
+                return;
+            } else if (ghResponse.status === 403) {
+                // Rate limited - allow submission but log warning
+                console.warn('GitHub API rate limited, skipping verification');
+            } else {
+                showStatus(status, 'error', '❌ GitHub verification failed (HTTP ' + ghResponse.status + '). Please try again.');
+                return;
+            }
+        }
+    } catch (err) {
+        console.warn('GitHub API error (network issue), skipping verification:', err);
+    }
+
     const foundation = document.getElementById('formFoundation').value.trim();
     const description = document.getElementById('formDescription').value.trim();
     const version = document.getElementById('formVersion').value.trim();
+    const license = document.getElementById('formLicense').value;
+    const platform = document.getElementById('formPlatform').value;
+    const osStatus = document.getElementById('formStatusSelect').value;
     const tagsRaw = document.getElementById('formTags').value.trim();
     const linksRaw = document.getElementById('formLinks').value.trim();
 
@@ -463,6 +585,9 @@ async function submitProject(e) {
         foundation: foundation || 'N/A',
         description: description || '',
         version: version || '1.0',
+        license,
+        platform,
+        os_status: osStatus,
         featured: false,
         tags,
         links: links.length ? links : [{ label: 'Main', url }]
@@ -507,7 +632,228 @@ function showStatus(el, type, msg) {
     el.style.display = 'block';
 }
 
+// === Account Modal ===
+function showAccountModal() {
+    updateAuthUI();
+    document.getElementById('accountModal').classList.add('show');
+}
+
+function hideAccountModal() {
+    document.getElementById('accountModal').classList.remove('show');
+    document.getElementById('signInStatus').style.display = 'none';
+    document.getElementById('signUpStatus').style.display = 'none';
+}
+
+document.getElementById('accountModal').addEventListener('click', function(e) {
+    if (e.target === this) hideAccountModal();
+});
+
+// Generate random color for banner
+function getRandomColor() {
+    const colors = [
+        'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+        'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+        'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+        'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+        'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+        'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+        'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+        'linear-gradient(135deg, #ff6e7f 0%, #bfe9ff 100%)',
+        'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)'
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
+}
+
+// Get initials from email
+function getInitials(email) {
+    if (!email) return '?';
+    const parts = email.split('@')[0].split(/[._-]/);
+    if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return email.substring(0, 2).toUpperCase();
+}
+
+async function updateAuthUI() {
+    if (!window.supabase) {
+        document.getElementById('accountStatusText').textContent = '⚠️ Supabase not configured';
+        document.getElementById('authForms').style.display = 'none';
+        document.getElementById('loggedInView').style.display = 'none';
+        return;
+    }
+
+    const { data: { session } } = await window.supabase.auth.getSession();
+    
+    if (session) {
+        document.getElementById('authForms').style.display = 'none';
+        document.getElementById('loggedInView').style.display = 'block';
+        
+        // Set random banner color
+        const banner = document.getElementById('profileBanner');
+        banner.style.background = getRandomColor();
+        
+        // Set avatar with initials
+        const avatar = document.getElementById('profileAvatar');
+        avatar.textContent = getInitials(session.user.email);
+        
+        // Set username from email (part before @)
+        const username = session.user.email.split('@')[0];
+        document.getElementById('userName').textContent = username;
+        
+        // Set email
+        document.getElementById('userEmail').textContent = session.user.email;
+        document.getElementById('accountStatusText').textContent = 'You are signed in';
+    } else {
+        document.getElementById('authForms').style.display = 'block';
+        document.getElementById('loggedInView').style.display = 'none';
+        document.getElementById('accountStatusText').textContent = 'Sign in or create an account';
+    }
+}
+
+async function signIn(e) {
+    e.preventDefault();
+    const status = document.getElementById('signInStatus');
+    status.style.display = 'none';
+
+    const email = document.getElementById('signInEmail').value.trim();
+    const password = document.getElementById('signInPassword').value;
+
+    if (!window.supabase) {
+        showStatus(status, 'error', '❌ Supabase not configured.');
+        return;
+    }
+
+    try {
+        const { data, error } = await window.supabase.auth.signInWithPassword({
+            email: email,
+            password: password,
+        });
+
+        if (error) {
+            console.error('Sign in error:', error);
+            if (error.message.includes('Invalid login credentials')) {
+                showStatus(status, 'error', '❌ Invalid email or password.');
+            } else {
+                showStatus(status, 'error', '❌ ' + error.message);
+            }
+            return;
+        }
+
+        console.log('Sign in success:', data);
+        showStatus(status, 'success', '✅ Signed in successfully!');
+        setTimeout(() => {
+            hideAccountModal();
+            updateAccountIcon(true);
+        }, 1000);
+    } catch (err) {
+        console.error('Sign in error:', err);
+        showStatus(status, 'error', '❌ Sign in failed. Please try again.');
+    }
+}
+
+async function signUp(e) {
+    e.preventDefault();
+    const status = document.getElementById('signUpStatus');
+    status.style.display = 'none';
+
+    const email = document.getElementById('signUpEmail').value.trim();
+    const password = document.getElementById('signUpPassword').value;
+
+    if (!window.supabase) {
+        showStatus(status, 'error', '❌ Supabase not configured.');
+        return;
+    }
+
+    if (password.length < 6) {
+        showStatus(status, 'error', '❌ Password must be at least 6 characters.');
+        return;
+    }
+
+    try {
+        const { data, error } = await window.supabase.auth.signUp({
+            email: email,
+            password: password,
+        });
+
+        if (error) {
+            console.error('Sign up error:', error);
+            if (error.message.includes('already registered')) {
+                showStatus(status, 'error', '❌ This email is already registered. Please sign in instead.');
+            } else {
+                showStatus(status, 'error', '❌ ' + error.message);
+            }
+            return;
+        }
+
+        console.log('Sign up success:', data);
+        showStatus(status, 'success', '✅ Account created! Please check your email to confirm.');
+        setTimeout(() => {
+            hideAccountModal();
+        }, 2000);
+    } catch (err) {
+        console.error('Sign up error:', err);
+        showStatus(status, 'error', '❌ Account creation failed. Please try again.');
+    }
+}
+
+async function signOut() {
+    if (!window.supabase) return;
+
+    try {
+        const { error } = await window.supabase.auth.signOut();
+        if (error) throw error;
+        
+        console.log('Sign out success');
+        hideAccountModal();
+        updateAccountIcon(false);
+    } catch (err) {
+        console.error('Sign out error:', err);
+        alert('❌ Sign out failed. Please try again.');
+    }
+}
+
+function updateAccountIcon(isLoggedIn) {
+    const icon = document.getElementById('accountIcon');
+    icon.textContent = isLoggedIn ? '✅' : '👤';
+}
+
+// Listen for auth state changes
+if (window.supabase && window.supabase.auth) {
+    window.supabase.auth.onAuthStateChange((event, session) => {
+        console.log('Auth state changed:', event, session ? 'logged in' : 'logged out');
+        updateAccountIcon(!!session);
+    });
+}
+
 // === Init ===
 document.addEventListener('DOMContentLoaded', function() {
     buildCards();
+    
+    // Footer button event listeners
+    const submitBtn = document.querySelector('.footer-submit-btn');
+    const licenseBtn = document.querySelector('.footer-license-btn');
+    
+    if (submitBtn) {
+        submitBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            showSubmitModal();
+        });
+    }
+    
+    if (licenseBtn) {
+        licenseBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            showLicenseModal();
+        });
+    }
+
+    // Initialize account icon based on current session
+    if (window.supabase) {
+        window.supabase.auth.getSession().then(({ data: { session } }) => {
+            updateAccountIcon(!!session);
+        });
+    }
 });

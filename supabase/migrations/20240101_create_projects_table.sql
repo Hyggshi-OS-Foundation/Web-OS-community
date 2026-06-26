@@ -1,7 +1,5 @@
--- Create projects table for Web OS submissions
--- Run this in Supabase Dashboard > SQL Editor
-
-CREATE TABLE IF NOT EXISTS public.projects (
+-- Create projects table
+CREATE TABLE IF NOT EXISTS projects (
     id BIGSERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     url TEXT NOT NULL,
@@ -11,27 +9,60 @@ CREATE TABLE IF NOT EXISTS public.projects (
     foundation TEXT DEFAULT 'N/A',
     description TEXT DEFAULT '',
     version TEXT DEFAULT '1.0',
+    license TEXT DEFAULT 'MIT',
+    platform TEXT DEFAULT 'Netlify',
+    os_status TEXT DEFAULT 'Stable',
     featured BOOLEAN DEFAULT false,
     tags TEXT[] DEFAULT '{}',
     links JSONB DEFAULT '[]'::jsonb,
-    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    status TEXT DEFAULT 'pending',
+    user_id UUID REFERENCES auth.users(id),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Indexes for faster queries
-CREATE INDEX IF NOT EXISTS idx_projects_status ON public.projects(status);
-CREATE INDEX IF NOT EXISTS idx_projects_featured ON public.projects(featured);
-CREATE INDEX IF NOT EXISTS idx_projects_tags ON public.projects USING GIN(tags);
-CREATE INDEX IF NOT EXISTS idx_projects_created_at ON public.projects(created_at DESC);
+-- Create index for faster queries
+CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
+CREATE INDEX IF NOT EXISTS idx_projects_featured ON projects(featured);
+CREATE INDEX IF NOT EXISTS idx_projects_created_at ON projects(created_at DESC);
 
--- Full text search on name and description
-CREATE INDEX IF NOT EXISTS idx_projects_search ON public.projects USING GIN(
-    to_tsvector('english', name || ' ' || COALESCE(description, ''))
-);
+-- Enable Row Level Security
+ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 
--- Auto-update updated_at timestamp
-CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+-- Drop existing policies if they exist (to allow re-running migration)
+DROP POLICY IF EXISTS "Public can view approved projects" ON projects;
+DROP POLICY IF EXISTS "Public can insert projects" ON projects;
+DROP POLICY IF EXISTS "Users can view own pending projects" ON projects;
+DROP POLICY IF EXISTS "Users can update own projects" ON projects;
+DROP POLICY IF EXISTS "Users can delete own projects" ON projects;
+
+-- Policy: Public can view only approved projects
+CREATE POLICY "Public can view approved projects"
+    ON projects FOR SELECT
+    USING (status = 'approved');
+
+-- Policy: Public can insert (submit new project)
+CREATE POLICY "Public can insert projects"
+    ON projects FOR INSERT
+    WITH CHECK (true);
+
+-- Policy: Authenticated users can view their own pending projects
+CREATE POLICY "Users can view own pending projects"
+    ON projects FOR SELECT
+    USING (auth.uid() = user_id AND status = 'pending');
+
+-- Policy: Authenticated users can update their own projects
+CREATE POLICY "Users can update own projects"
+    ON projects FOR UPDATE
+    USING (auth.uid() = user_id);
+
+-- Policy: Authenticated users can delete their own projects
+CREATE POLICY "Users can delete own projects"
+    ON projects FOR DELETE
+    USING (auth.uid() = user_id);
+
+-- Function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_projects_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
@@ -39,60 +70,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS update_projects_updated_at ON public.projects;
+-- Drop trigger if exists (to allow re-running migration)
+DROP TRIGGER IF EXISTS update_projects_updated_at ON projects;
+
+-- Trigger to auto-update updated_at
 CREATE TRIGGER update_projects_updated_at
-    BEFORE UPDATE ON public.projects
+    BEFORE UPDATE ON projects
     FOR EACH ROW
-    EXECUTE FUNCTION public.update_updated_at_column();
-
--- Row Level Security (RLS)
-ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
-
--- Policy: Anyone can view approved projects
-CREATE POLICY "Public can view approved projects"
-    ON public.projects
-    FOR SELECT
-    USING (status = 'approved');
-
--- Policy: Anyone can insert (submit new project)
-CREATE POLICY "Anyone can submit projects"
-    ON public.projects
-    FOR INSERT
-    WITH CHECK (true);
-
--- Policy: Only authenticated users can update (for admin review)
-CREATE POLICY "Only authenticated can update"
-    ON public.projects
-    FOR UPDATE
-    USING (auth.role() = 'authenticated');
-
--- Sample data (optional - remove if not needed)
-INSERT INTO public.projects (name, url, icon, author, repo, foundation, description, version, featured, tags, links, status)
-VALUES (
-    'AvdanOS',
-    'https://dynamicos.netlify.app',
-    'https://github.com/DynamicCode1/AvdanOSdemo/blob/main/logo.png?raw=true',
-    'DynamicCode1',
-    'AvdanOSdemo',
-    'DynamicCode1',
-    'A modern web-based desktop experience built with web technologies. Lightweight and fast.',
-    '2.0',
-    true,
-    ARRAY['webos', 'demo', 'lightweight', 'netlify'],
-    '[{"label": "Main", "url": "https://dynamicos.netlify.app"}]'::jsonb,
-    'approved'
-),
-(
-    'Hyggshi OS Web Edition',
-    'https://hyggshiosdeveloper.github.io/hyggshi-os-website/OSmain.html',
-    'https://raw.githubusercontent.com/HyggshiOSDeveloper/hyggshi-os-website/refs/heads/main/Resources/favicon.ico',
-    'HyggshiOSDeveloper',
-    'hyggshi-os-website',
-    'Hyggshi-OS-Foundation',
-    'A full-featured web OS with a modern interface, supporting multiple apps and cloud deployment.',
-    '1.0',
-    true,
-    ARRAY['webos', 'full', 'modern', 'cloudflare'],
-    '[{"label": "View Web OS in Pages", "url": "https://hyggshiosdeveloper.github.io/hyggshi-os-website/OSmain.html"}, {"label": "View Web OS in cloudflare", "url": "https://hyggshi-os-website.pages.dev/OSmain"}]'::jsonb,
-    'approved'
-);
+    EXECUTE FUNCTION update_projects_updated_at();
