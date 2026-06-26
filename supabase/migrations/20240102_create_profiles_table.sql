@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     username TEXT UNIQUE,
     display_name TEXT,
     avatar_url TEXT,
+    password_hash TEXT DEFAULT '',
     bio TEXT,
     github_url TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -61,9 +62,9 @@ BEGIN
     INSERT INTO public.profiles (id, username, display_name, avatar_url)
     VALUES (
         NEW.id,
-        NEW.raw_user_meta_data->>'username',
-        NEW.raw_user_meta_data->>'full_name',
-        NEW.raw_user_meta_data->>'avatar_url'
+        COALESCE(NEW.raw_user_meta_data->>'username', split_part(NEW.email, '@', 1)),
+        COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+        COALESCE(NEW.raw_user_meta_data->>'avatar_url', '')
     );
     RETURN NEW;
 END;

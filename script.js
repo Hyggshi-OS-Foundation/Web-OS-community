@@ -774,6 +774,9 @@ async function signUp(e) {
         const { data, error } = await window.supabase.auth.signUp({
             email: email,
             password: password,
+            options: {
+                email_confirm: false  // Disable email confirmation
+            }
         });
 
         if (error) {
@@ -787,10 +790,34 @@ async function signUp(e) {
         }
 
         console.log('Sign up success:', data);
-        showStatus(status, 'success', '✅ Account created! Please check your email to confirm.');
+        
+        // Show creating account status
+        showStatus(status, 'info', '✅ Account created! Signing in...');
+        
+        // Auto sign in after account creation (handles both email_confirm on/off)
+        const { error: signInError } = await window.supabase.auth.signInWithPassword({
+            email: email,
+            password: password,
+        });
+        
+        if (signInError) {
+            console.error('Auto sign in error:', signInError);
+            showStatus(status, 'info', '✅ Account created! Please sign in with your password.');
+            document.getElementById('signUpEmail').value = '';
+            document.getElementById('signUpPassword').value = '';
+            document.getElementById('signInEmail').value = email;
+            document.getElementById('signInPassword').focus();
+            status.style.display = 'none';
+            const signInStatus = document.getElementById('signInStatus');
+            showStatus(signInStatus, 'info', '✅ Account created! Enter your password to continue.');
+            return;
+        }
+        
+        // Success! Reload page to refresh all data with new session
+        showStatus(status, 'success', '✅ Signed in! Reloading...');
         setTimeout(() => {
-            hideAccountModal();
-        }, 2000);
+            window.location.reload();
+        }, 800);
     } catch (err) {
         console.error('Sign up error:', err);
         showStatus(status, 'error', '❌ Account creation failed. Please try again.');
@@ -801,15 +828,27 @@ async function signOut() {
     if (!window.supabase) return;
 
     try {
-        const { error } = await window.supabase.auth.signOut();
-        if (error) throw error;
+        const { data, error } = await window.supabase.auth.signOut();
         
-        console.log('Sign out success');
+        // Note: 403 errors from supabase.js are expected when session has expired
+        // The Supabase library logs this to console, but we handle it gracefully
+        // by always updating the UI state regardless of the error
+        
+        console.log('Sign out attempted:', error ? 'with error (expected if session expired)' : 'success');
+        
+        // Always update UI, even if logout failed
         hideAccountModal();
         updateAccountIcon(false);
+        
+        // Only log non-403 errors as warnings
+        if (error && !error.message.includes('403')) {
+            console.warn('Sign out warning:', error.message);
+        }
     } catch (err) {
         console.error('Sign out error:', err);
-        alert('❌ Sign out failed. Please try again.');
+        // Still update UI even on error
+        hideAccountModal();
+        updateAccountIcon(false);
     }
 }
 
@@ -823,6 +862,14 @@ if (window.supabase && window.supabase.auth) {
     window.supabase.auth.onAuthStateChange((event, session) => {
         console.log('Auth state changed:', event, session ? 'logged in' : 'logged out');
         updateAccountIcon(!!session);
+        
+        // If user just signed in and modal is open, update the UI immediately
+        if (event === 'SIGNED_IN' && session) {
+            const modal = document.getElementById('accountModal');
+            if (modal.classList.contains('show')) {
+                updateAuthUI();
+            }
+        }
     });
 }
 
