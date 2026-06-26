@@ -132,16 +132,20 @@ function initTags() {
     });
 
     const container = document.getElementById('tagFilters');
-    container.innerHTML = '<button class="tag-filter active" data-tag="all" onclick="filterByTag(\'all\')">All</button>';
+    if (container) {
+        container.innerHTML = '<button class="tag-filter active" data-tag="all" onclick="filterByTag(\'all\')">All</button>';
 
-    [...allTags].sort().forEach(tag => {
-        container.innerHTML += `<button class="tag-filter" data-tag="${tag}" onclick="filterByTag('${tag}')">${tag}</button>`;
-    });
+        [...allTags].sort().forEach(tag => {
+            container.innerHTML += `<button class="tag-filter" data-tag="${tag}" onclick="filterByTag('${tag}')">${tag}</button>`;
+        });
+    }
 
     document.querySelectorAll('.card').forEach(card => {
         const tags = (card.getAttribute('data-tags') || '').split(',').map(t => t.trim()).filter(Boolean);
         const tagContainer = card.querySelector('.card-tags');
-        tagContainer.innerHTML = tags.map(t => `<span class="card-tag">${t}</span>`).join('');
+        if (tagContainer) {
+            tagContainer.innerHTML = tags.map(t => `<span class="card-tag">${t}</span>`).join('');
+        }
     });
 }
 
@@ -155,7 +159,7 @@ function filterByTag(tag) {
 
 function filterCards() {
     const input = document.getElementById('searchInput');
-    const filter = input.value.toLowerCase().trim();
+    const filter = input ? input.value.toLowerCase().trim() : '';
     const cards = document.querySelectorAll('.card');
 
     cards.forEach(card => {
@@ -597,7 +601,8 @@ async function submitProject(e) {
         os_status: osStatus,
         featured: false,
         tags,
-        links: links.length ? links : [{ label: 'Main', url }]
+        links: links.length ? links : [{ label: 'Main', url }],
+        status: 'pending' // Thêm mặc định trạng thái 'pending' để Admin duyệt
     };
 
     try {
@@ -661,6 +666,13 @@ function getInitials(username) {
     return username.substring(0, 2).toUpperCase();
 }
 
+// Kiểm tra quyền Admin
+function isAdmin(user) {
+    if (!user) return false;
+    const adminUsernames = ['hyggshi'];
+    return adminUsernames.includes(user.username.toLowerCase()) || user.is_admin === true;
+}
+
 async function updateAuthUI() {
     if (!window.supabase) {
         document.getElementById('accountStatusText').textContent = '⚠️ Supabase not configured';
@@ -670,6 +682,7 @@ async function updateAuthUI() {
     }
 
     const user = getCurrentUser();
+    const adminBadge = document.getElementById('adminBadge');
     
     if (user) {
         document.getElementById('authForms').style.display = 'none';
@@ -685,10 +698,20 @@ async function updateAuthUI() {
         document.getElementById('userBio').textContent = user.bio || 'No bio yet';
         document.getElementById('userColor').textContent = '🎨 Color: ' + user.color;
         document.getElementById('accountStatusText').textContent = 'Signed in as ' + user.username;
+
+        // Xử lý quyền Admin
+        if (isAdmin(user)) {
+            document.getElementById('adminQuickActions').style.display = 'block';
+            if (adminBadge) adminBadge.style.display = 'flex';
+        } else {
+            document.getElementById('adminQuickActions').style.display = 'none';
+            if (adminBadge) adminBadge.style.display = 'none';
+        }
     } else {
         document.getElementById('authForms').style.display = 'block';
         document.getElementById('loggedInView').style.display = 'none';
         document.getElementById('accountStatusText').textContent = 'Sign in or create an account';
+        if (adminBadge) adminBadge.style.display = 'none';
     }
 }
 
@@ -808,8 +831,127 @@ function togglePassword(inputId, toggleEl) {
 
 function updateAccountIcon(isLoggedIn) {
     const icon = document.getElementById('accountIcon');
-    icon.textContent = isLoggedIn ? '✅' : '👤';
+    if (icon) icon.textContent = isLoggedIn ? '✅' : '👤';
 }
+
+// === Admin Panel Functions ===
+async function showAdminModal() {
+    const user = getCurrentUser();
+    if (!isAdmin(user)) return;
+
+    document.getElementById('adminModal').classList.add('show');
+    await fetchPendingProjects();
+}
+
+function hideAdminModal() {
+    document.getElementById('adminModal').classList.remove('show');
+}
+
+function openAdminApprovalPanel() {
+    hideAccountModal();
+    showAdminModal();
+}
+
+// Nạp các dự án chờ duyệt từ cơ sở dữ liệu
+async function fetchPendingProjects() {
+    const listContainer = document.getElementById('adminPendingList');
+    const noPendingContainer = document.getElementById('adminNoPending');
+    
+    if (!window.supabase) return;
+    
+    listContainer.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">Đang nạp danh sách chờ...</td></tr>';
+    noPendingContainer.style.display = 'none';
+
+    try {
+        const { data, error } = await window.supabase
+            .from('projects')
+            .select('*')
+            .eq('status', 'pending')
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            listContainer.innerHTML = '';
+            noPendingContainer.style.display = 'block';
+            return;
+        }
+
+        listContainer.innerHTML = '';
+        data.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>
+                    <div style="display:flex; align-items:center; gap: 10px;">
+                        <img src="${p.icon}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;" onerror="this.src='images/placeholder.png'">
+                        <div>
+                            <strong style="color:var(--text);">${p.name}</strong><br>
+                            <a href="${p.url}" target="_blank" style="font-size:11px; color:var(--accent); text-decoration:none;">Xem trang web ↗</a>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span style="font-size:13px; color:var(--text-secondary);">${p.submitter_username || 'Ẩn danh'}</span>
+                </td>
+                <td>
+                    <span style="font-size:12px; font-family:monospace; color:var(--text-muted);">${p.author}/${p.repo}</span>
+                </td>
+                <td>
+                    <div class="admin-action-btns">
+                        <button class="admin-btn admin-btn-approve" onclick="approveProject('${p.id}')">Approve (Duyệt)</button>
+                        <button class="admin-btn admin-btn-reject" onclick="rejectProject('${p.id}')">Reject (Từ chối)</button>
+                    </div>
+                </td>
+            `;
+            listContainer.appendChild(tr);
+        });
+    } catch (err) {
+        console.error('Lỗi khi lấy danh sách pending:', err);
+        listContainer.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#e74c3c; padding: 20px;">❌ Thất bại khi nạp dữ liệu: ${err.message}</td></tr>`;
+    }
+}
+
+// Admin Approve Project (Phê duyệt)
+async function approveProject(id) {
+    if (!confirm('Bạn có chắc chắn muốn PHÊ DUYỆT dự án này lên danh sách chính thức?')) return;
+    
+    try {
+        const { error } = await window.supabase
+            .from('projects')
+            .update({ status: 'approved' })
+            .eq('id', id);
+
+        if (error) throw error;
+        
+        await fetchPendingProjects();
+        buildCards(); // Tự động cập nhật lại lưới hiển thị
+    } catch (err) {
+        alert('Lỗi phê duyệt: ' + err.message);
+    }
+}
+
+// Admin Reject Project (Từ chối)
+async function rejectProject(id) {
+    if (!confirm('Bạn có chắc chắn muốn TỪ CHỐI / XÓA hồ sơ đăng ký của dự án này?')) return;
+    
+    try {
+        const { error } = await window.supabase
+            .from('projects')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        
+        await fetchPendingProjects();
+    } catch (err) {
+        alert('Lỗi từ chối dự án: ' + err.message);
+    }
+}
+
+// Thiết lập đóng modal khi bấm bên ngoài
+document.getElementById('adminModal').addEventListener('click', function(e) {
+    if (e.target === this) hideAdminModal();
+});
 
 // === Init ===
 document.addEventListener('DOMContentLoaded', function() {
@@ -834,10 +976,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Initialize account icon based on saved session
+    // Khởi tạo các thành phần giao diện khi tải trang xong
     const user = getCurrentUser();
     updateAccountIcon(!!user);
     if (user) {
         console.log('👤 User session restored:', user.username);
+        // Kiểm tra quyền hiển thị Badge Admin trực tiếp
+        setTimeout(() => {
+            updateAuthUI();
+        }, 500);
     }
 });

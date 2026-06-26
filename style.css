@@ -104,6 +104,32 @@ body {
     transform: scale(1.1);
 }
 
+/* Admin badge on top */
+.admin-badge {
+    position: fixed;
+    top: 20px;
+    left: 80px;
+    height: 44px;
+    padding: 0 16px;
+    border-radius: 22px;
+    background: var(--accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 50;
+    font-weight: 700;
+    font-size: 13px;
+    box-shadow: 0 2px 8px var(--shadow);
+    transition: background 0.3s ease, transform 0.2s;
+}
+
+.admin-badge:hover {
+    transform: scale(1.05);
+    background: var(--accent-hover);
+}
+
 .container {
     max-width: 960px;
     margin: 0 auto;
@@ -896,6 +922,75 @@ body {
     max-width: 240px;
 }
 
+/* Admin Approval Panel Styles */
+.admin-table-container {
+    margin-top: 15px;
+    width: 100%;
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.admin-table th, .admin-table td {
+    padding: 12px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.admin-table th {
+    background: var(--tag-bg);
+    color: var(--text);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+
+.admin-table tr:last-child td {
+    border-bottom: none;
+}
+
+.admin-action-btns {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.admin-btn {
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    border: none;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.admin-btn-approve {
+    background: #27ae60;
+    color: white;
+}
+
+.admin-btn-approve:hover {
+    background: #219653;
+}
+
+.admin-btn-reject {
+    background: #eb5757;
+    color: white;
+}
+
+.admin-btn-reject:hover {
+    background: #d32f2f;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     body {
@@ -940,6 +1035,17 @@ body {
         width: 38px;
         height: 38px;
         font-size: 17px;
+    }
+
+    .admin-badge {
+        position: fixed;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        top: auto;
+        height: 40px;
+        padding: 0 20px;
+        border-radius: 20px;
     }
 }
 

@@ -16,6 +16,11 @@
         <span id="accountIcon">👤</span>
     </div>
 
+    <!-- Admin Badge & Control Panel Trigger -->
+    <div class="admin-badge" id="adminBadge" onclick="showAdminModal()" style="display: none;">
+        <span>⚙️ Admin Panel</span>
+    </div>
+
     <div class="container">
         <div class="header">
             <h1>Web version of all OS</h1>
@@ -227,7 +232,6 @@
             </form>
         </div>
     </div>
-    <!-- ✅ submitModal đóng đúng chỗ, licenseModal nằm ngoài -->
 
     <!-- License Modal -->
     <div class="modal-overlay" id="licenseModal">
@@ -306,10 +310,47 @@
                     <p id="userBio" style="color: var(--text-secondary); font-size: 13px;"></p>
                     <p id="userColor" style="font-size: 12px; margin-top: 4px;"></p>
                 </div>
+                <div id="adminQuickActions" style="display: none; margin: 15px 0; padding: 10px; border-radius: 8px; background: rgba(233, 69, 96, 0.1); border: 1px solid var(--accent);">
+                    <p style="color: var(--accent); font-size: 12px; font-weight: bold; margin-bottom: 8px;">🛡️ ADMIN ACTIONS</p>
+                    <button type="button" class="modal-btn modal-btn-launch" style="padding: 6px 12px; font-size: 11px; background: var(--accent);" onclick="openAdminApprovalPanel()">Manage Submissions</button>
+                </div>
                 <div class="modal-buttons" style="margin-top: 15px;">
                     <button type="button" class="modal-btn modal-btn-cancel" onclick="hideAccountModal()">Close</button>
                     <button type="button" class="modal-btn modal-btn-launch" onclick="signOut()">Sign Out</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Approval Modal -->
+    <div class="modal-overlay" id="adminModal">
+        <div class="modal-content modal-lg">
+            <button class="modal-close" onclick="hideAdminModal()">&times;</button>
+            <h2 class="form-title">🛡️ Admin OS Approvals</h2>
+            <p class="form-subtitle">Duyệt hoặc Từ chối các dự án Web OS do cộng đồng gửi lên.</p>
+            
+            <div class="admin-table-container">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Web OS</th>
+                            <th>Người gửi</th>
+                            <th>Thông tin GitHub</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminPendingList">
+                        <!-- Danh sách hàng đợi duyệt sẽ được nạp tại đây bằng JS -->
+                    </tbody>
+                </table>
+                <div id="adminNoPending" style="display: none; text-align: center; padding: 30px; color: var(--text-muted);">
+                    <p style="font-size: 32px; margin-bottom: 8px;">🎉</p>
+                    <p>Không có dự án nào đang chờ duyệt!</p>
+                </div>
+            </div>
+            
+            <div class="modal-buttons" style="margin-top: 20px;">
+                <button type="button" class="modal-btn modal-btn-cancel" onclick="hideAdminModal()">Đóng</button>
             </div>
         </div>
     </div>
