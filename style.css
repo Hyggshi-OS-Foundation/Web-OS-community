@@ -169,7 +169,7 @@ body {
     position: relative;
     box-shadow: 0 4px 12px var(--shadow);
     transition: transform 0.2s ease, opacity 0.2s ease, background 0.3s ease, box-shadow 0.3s ease;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .card:hover {
@@ -193,6 +193,8 @@ body {
     z-index: 2;
     letter-spacing: 0.5px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    overflow: hidden;
+    clip-path: inset(0);
 }
 
 .card-border-top {
@@ -333,19 +335,33 @@ body {
 .dropdown-menu {
     display: none;
     position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    margin-top: 5px;
-    background: var(--card-border);
-    border-radius: 10px;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 180px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
     overflow: hidden;
-    z-index: 10;
-    box-shadow: 0 4px 12px var(--shadow);
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    padding: 4px;
 }
 
 .dropdown-menu.show {
     display: block;
+    animation: dropIn 0.15s ease;
+}
+
+@keyframes dropIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
 }
 
 .dropdown-menu a {
@@ -354,16 +370,17 @@ body {
     color: var(--text-secondary);
     text-decoration: none;
     font-size: 13px;
-    transition: background 0.2s ease;
+    border-radius: 8px;
+    transition: background 0.15s ease, color 0.15s ease;
 }
 
 .dropdown-menu a:hover {
-    background: var(--card-bg);
+    background: var(--tag-bg);
     color: var(--text);
 }
 
 .dropdown-menu a:not(:last-child) {
-    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 2px;
 }
 
 .info-btn {
@@ -410,6 +427,137 @@ body {
 
 .footer a:hover {
     text-decoration: underline;
+}
+
+.footer-sep {
+    margin: 0 10px;
+    color: var(--text-muted);
+}
+
+/* Submit Modal Form */
+.modal-form {
+    max-width: 600px;
+    text-align: left;
+}
+
+.form-title {
+    color: var(--text);
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.form-subtitle {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group.form-full {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.form-group input,
+.form-group textarea {
+    padding: 10px 14px;
+    border: 2px solid var(--input-border);
+    border-radius: 10px;
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s ease, background 0.3s ease;
+    resize: vertical;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    border-color: var(--accent);
+}
+
+.form-group textarea {
+    min-height: 70px;
+}
+
+.form-status {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 14px;
+    text-align: center;
+    display: none;
+}
+
+.form-status.success {
+    display: block;
+    background: rgba(39, 174, 96, 0.15);
+    color: #27ae60;
+    border: 1px solid rgba(39, 174, 96, 0.3);
+}
+
+.form-status.error {
+    display: block;
+    background: rgba(231, 76, 60, 0.15);
+    color: #e74c3c;
+    border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+@media (max-width: 480px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Auth Modal */
+.auth-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--card-border);
+}
+
+.auth-tab {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+
+.auth-tab:hover {
+    color: var(--text);
+}
+
+.auth-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
 }
 
 /* Modal styles */

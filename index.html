@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web OS Cards</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
     <div class="theme-toggle" onclick="toggleTheme()">
@@ -23,7 +24,13 @@
 
         <div class="footer">
             <p>Want your project to be visible here?</p>
-            <p>Send your project to us on <a href="https://github.com/Hyggshi-OS-Foundation/Web-OS-community" target="_blank">GitHub</a></p>
+            <p>
+                <a href="https://github.com/Hyggshi-OS-Foundation/Web-OS-community" target="_blank">GitHub</a>
+                <span class="footer-sep">•</span>
+                <a href="#" onclick="event.preventDefault(); showSubmitModal()">Submit Project</a>
+                <span class="footer-sep">•</span>
+                <a href="#" onclick="event.preventDefault(); showAuthModal()" id="authLink">Login / Sign Up</a>
+            </p>
         </div>
     </div>
 
@@ -100,7 +107,128 @@
         </div>
     </div>
 
+    <!-- Submit Modal -->
+    <div class="modal-overlay" id="submitModal">
+        <div class="modal-content modal-form">
+            <button class="modal-close" onclick="hideSubmitModal()">&times;</button>
+            <h2 class="form-title">📦 Submit Your Web OS</h2>
+            <p class="form-subtitle">Fill in the details below to add your project to the collection.</p>
+            <form id="submitForm" onsubmit="submitProject(event)">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="formName">OS Name *</label>
+                        <input type="text" id="formName" required placeholder="e.g. MyWebOS">
+                    </div>
+                    <div class="form-group">
+                        <label for="formUrl">Live URL *</label>
+                        <input type="url" id="formUrl" required placeholder="https://my-webos.netlify.app">
+                    </div>
+                    <div class="form-group">
+                        <label for="formIcon">Icon URL *</label>
+                        <input type="url" id="formIcon" required placeholder="https://example.com/logo.png">
+                    </div>
+                    <div class="form-group">
+                        <label for="formAuthor">GitHub Username *</label>
+                        <input type="text" id="formAuthor" required placeholder="your-username">
+                    </div>
+                    <div class="form-group">
+                        <label for="formRepo">Repository Name *</label>
+                        <input type="text" id="formRepo" required placeholder="your-repo">
+                    </div>
+                    <div class="form-group">
+                        <label for="formFoundation">Foundation</label>
+                        <input type="text" id="formFoundation" placeholder="Foundation Name (optional)">
+                    </div>
+                    <div class="form-group form-full">
+                        <label for="formDescription">Description</label>
+                        <textarea id="formDescription" rows="3" placeholder="A short description of your web OS..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="formVersion">Version</label>
+                        <input type="text" id="formVersion" placeholder="1.0">
+                    </div>
+                    <div class="form-group">
+                        <label for="formTags">Tags (comma separated)</label>
+                        <input type="text" id="formTags" placeholder="webos, demo, lightweight">
+                    </div>
+                    <div class="form-group form-full">
+                        <label for="formLinks">Links (one per line: Label | URL)</label>
+                        <textarea id="formLinks" rows="3" placeholder="Main | https://...&#10;Dev | https://..."></textarea>
+                    </div>
+                </div>
+                <div class="form-status" id="formStatus"></div>
+                <div class="modal-buttons">
+                    <button type="button" class="modal-btn modal-btn-cancel" onclick="hideSubmitModal()">Cancel</button>
+                    <button type="submit" class="modal-btn modal-btn-launch" id="submitBtn">Submit Project</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div class="modal-overlay" id="authModal">
+        <div class="modal-content modal-sm">
+            <button class="modal-close" onclick="hideAuthModal()">&times;</button>
+            <h2 class="form-title">🔐 Account</h2>
+            <p class="form-subtitle">Login or create an account to manage your submissions.</p>
+            
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
+                <button class="auth-tab" onclick="switchAuthTab('signup')">Sign Up</button>
+            </div>
+
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group form-full">
+                    <label for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" required placeholder="you@example.com">
+                </div>
+                <div class="form-group form-full">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" required placeholder="••••••••">
+                </div>
+                <div class="form-status" id="loginStatus"></div>
+                <div class="modal-buttons">
+                    <button type="button" class="modal-btn modal-btn-cancel" onclick="hideAuthModal()">Cancel</button>
+                    <button type="submit" class="modal-btn modal-btn-launch">Login</button>
+                </div>
+            </form>
+
+            <form id="signupForm" onsubmit="handleSignup(event)" style="display: none;">
+                <div class="form-group form-full">
+                    <label for="signupEmail">Email</label>
+                    <input type="email" id="signupEmail" required placeholder="you@example.com">
+                </div>
+                <div class="form-group form-full">
+                    <label for="signupPassword">Password</label>
+                    <input type="password" id="signupPassword" required placeholder="••••••••" minlength="6">
+                </div>
+                <div class="form-group form-full">
+                    <label for="signupUsername">Username</label>
+                    <input type="text" id="signupUsername" required placeholder="your-username">
+                </div>
+                <div class="form-status" id="signupStatus"></div>
+                <div class="modal-buttons">
+                    <button type="button" class="modal-btn modal-btn-cancel" onclick="hideAuthModal()">Cancel</button>
+                    <button type="submit" class="modal-btn modal-btn-launch">Create Account</button>
+                </div>
+            </form>
+
+            <button class="modal-btn modal-btn-cancel" style="width: 100%; margin-top: 10px;" onclick="handleLogout()" id="logoutBtn" style="display: none;">Logout</button>
+            
+            <div id="zashiSection" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--card-border); display: none;">
+                <h3 style="color: var(--text); font-size: 16px; margin-bottom: 10px; text-align: center;">🔗 Zashi Account</h3>
+                <div class="form-group form-full">
+                    <label for="zashiUsername">Zashi Username</label>
+                    <input type="text" id="zashiUsername" placeholder="@username">
+                </div>
+                <button type="button" class="modal-btn modal-btn-launch" style="width: 100%;" onclick="linkZashiAccount()">Link Zashi Account</button>
+                <p id="zashiStatus" style="text-align: center; margin-top: 10px; font-size: 13px;"></p>
+            </div>
+        </div>
+    </div>
+
     <script src="os-list.js"></script>
+    <script src="supabase.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

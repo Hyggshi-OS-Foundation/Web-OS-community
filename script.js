@@ -21,11 +21,31 @@ if (localStorage.getItem('theme') === 'light') {
 }
 
 // === Build Cards from osList ===
-function buildCards() {
+async function buildCards() {
     const grid = document.getElementById('cardsGrid');
     grid.innerHTML = '';
 
-    osList.forEach(os => {
+    let projects = [...osList]; // fallback to static list
+
+    // Try fetch from Supabase if configured
+    if (window.supabase) {
+        try {
+            const { data, error } = await window.supabase
+                .from('projects')
+                .select('*')
+                .eq('status', 'approved')
+                .order('featured', { ascending: false })
+                .order('created_at', { ascending: false });
+
+            if (!error && data && data.length > 0) {
+                projects = data.map(mapProjectToCard);
+            }
+        } catch (e) {
+            console.warn('Failed to fetch from Supabase, using static list:', e);
+        }
+    }
+
+    projects.forEach(os => {
         const tagsStr = (os.tags || []).join(',');
         const linksHtml = (os.links || []).map(l =>
             `<a href="#" onclick="event.preventDefault(); goto(\`${l.url}\`)">${l.label}</a>`
@@ -74,6 +94,26 @@ function buildCards() {
     initTags();
     initRatings();
     initDropdowns();
+}
+
+function mapProjectToCard(p) {
+    const links = (p.links || []).map(l =>
+        typeof l === 'string' ? { label: 'Main', url: l } : l
+    );
+
+    return {
+        name: p.name,
+        url: p.url,
+        icon: p.icon,
+        author: p.author,
+        repo: p.repo,
+        foundation: p.foundation || 'N/A',
+        description: p.description || '',
+        version: p.version || '1.0',
+        featured: p.featured || false,
+        tags: p.tags || [],
+        links: links.length ? links : [{ label: 'Main', url: p.url }]
+    };
 }
 
 // === Tags ===
@@ -318,6 +358,346 @@ function openInfoRepo() {
 document.getElementById('infoModal').addEventListener('click', function(e) {
     if (e.target === this) hideInfoModal();
 });
+
+// === Auth Modal ===
+function switchAuthTab(tab) {
+    const loginForm = document.getElementById('loginForm');
+    const signupForm = document.getElementById('signupForm');
+    const tabs = document.querySelectorAll('.auth-tab');
+    
+    tabs.forEach(t => t.classList.remove('active'));
+    
+    if (tab === 'login') {
+        loginForm.style.display = 'block';
+        signupForm.style.display = 'none';
+        tabs[0].classList.add('active');
+    } else {
+        loginForm.style.display = 'none';
+        signupForm.style.display = 'block';
+        tabs[1].classList.add('active');
+    }
+}
+
+function showAuthModal() {
+    document.getElementById('authModal').classList.add('show');
+    updateAuthUI();
+}
+
+function hideAuthModal() {
+    document.getElementById('authModal').classList.remove('show');
+}
+
+document.getElementById('authModal').addEventListener('click', function(e) {
+    if (e.target === this) hideAuthModal();
+});
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const status = document.getElementById('loginStatus');
+    status.style.display = 'none';
+    
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    
+    if (!email || !password) {
+        showAuthStatus(status, 'error', 'Please fill in all fields.');
+        return;
+    }
+    
+    try {
+        if (!window.supabase) {
+            throw new Error('Supabase chưa được cấu hình.');
+        }
+        
+        const { data, error } = await window.supabase.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+        
+        if (error) throw error;
+        
+        showAuthStatus(status, 'success', '✅ Login successful!');
+        setTimeout(() => {
+            hideAuthModal();
+            updateAuthUI();
+        }, 1000);
+    } catch (err) {
+        console.error('Login error:', err);
+        showAuthStatus(status, 'error', '❌ ' + (err.message || 'Login failed. Please try again.'));
+    }
+}
+
+async function handleSignup(e) {
+    e.preventDefault();
+    const status = document.getElementById('signupStatus');
+    status.style.display = 'none';
+    
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const username = document.getElementById('signupUsername').value.trim();
+    
+    if (!email || !password || !username) {
+        showAuthStatus(status, 'error', 'Please fill in all fields.');
+        return;
+    }
+    
+    if (password.length < 6) {
+        showAuthStatus(status, 'error', 'Password must be at least 6 characters.');
+        return;
+    }
+    
+    try {
+        if (!window.supabase) {
+            throw new Error('Supabase chưa được cấu hình.');
+        }
+        
+        const { data, error } = await window.supabase.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                data: {
+                    username: username,
+                    display_name: username
+                }
+            }
+        });
+        
+        if (error) throw error;
+        
+        showAuthStatus(status, 'success', '✅ Account created! Please check your email to verify.');
+        setTimeout(() => {
+            hideAuthModal();
+            updateAuthUI();
+        }, 2000);
+    } catch (err) {
+        console.error('Signup error:', err);
+        showAuthStatus(status, 'error', '❌ ' + (err.message || 'Signup failed. Please try again.'));
+    }
+}
+
+async function handleLogout() {
+    try {
+        if (!window.supabase) {
+            console.warn('Supabase not configured');
+            return;
+        }
+        
+        await window.supabase.auth.signOut();
+        updateAuthUI();
+        console.log('Logged out successfully');
+    } catch (err) {
+        console.error('Logout error:', err);
+    }
+}
+
+function showAuthStatus(el, type, msg) {
+    el.className = 'form-status ' + type;
+    el.textContent = msg;
+    el.style.display = 'block';
+}
+
+async function updateAuthUI() {
+    const authLink = document.getElementById('authLink');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const zashiSection = document.getElementById('zashiSection');
+    
+    if (!window.supabase) {
+        authLink.style.display = 'inline';
+        logoutBtn.style.display = 'none';
+        if (zashiSection) zashiSection.style.display = 'none';
+        return;
+    }
+    
+    try {
+        const { data: { session } } = await window.supabase.auth.getSession();
+        
+        if (session) {
+            authLink.style.display = 'none';
+            logoutBtn.style.display = 'block';
+            if (zashiSection) zashiSection.style.display = 'block';
+        } else {
+            authLink.style.display = 'inline';
+            logoutBtn.style.display = 'none';
+            if (zashiSection) zashiSection.style.display = 'none';
+        }
+    } catch (err) {
+        console.error('Auth check error:', err);
+        authLink.style.display = 'inline';
+        logoutBtn.style.display = 'none';
+        if (zashiSection) zashiSection.style.display = 'none';
+    }
+}
+
+async function linkZashiAccount() {
+    const username = document.getElementById('zashiUsername').value.trim();
+    const status = document.getElementById('zashiStatus');
+    
+    if (!username) {
+        status.textContent = '❌ Please enter Zashi username';
+        status.style.color = '#e74c3c';
+        return;
+    }
+    
+    // Remove @ if user included it
+    const cleanUsername = username.replace('@', '');
+    
+    try {
+        if (!window.supabase) {
+            throw new Error('Supabase not configured');
+        }
+        
+        // Get current user
+        const { data: { session } } = await window.supabase.auth.getSession();
+        if (!session) {
+            throw new Error('You must be logged in to link Zashi account');
+        }
+        
+        // Check if Zashi account exists by querying Zashi's Supabase
+        // Using the provided Zashi credentials
+        const ZASHI_URL = 'https://kwgxqxffjruykjzjhlkq.supabase.co';
+        const ZASHI_KEY = 'sb_publishable_cj9pOUvJFPdOEtZCziWULQ_c-Ch1xPb';
+        
+        // Query Zashi database to check if user exists
+        const response = await fetch(`${ZASHI_URL}/rest/v1/profiles?username=eq.${cleanUsername}`, {
+            headers: {
+                'apikey': ZASHI_KEY,
+                'Authorization': `Bearer ${ZASHI_KEY}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to verify Zashi account');
+        }
+        
+        const zashiData = await response.json();
+        
+        if (!zashiData || zashiData.length === 0) {
+            status.textContent = '❌ Zashi account not found. Please check the username.';
+            status.style.color = '#e74c3c';
+            return;
+        }
+        
+        // Update current user's profile with Zashi info
+        const { error: updateError } = await window.supabase
+            .from('profiles')
+            .update({
+                zashi_linked: true,
+                zashi_username: cleanUsername
+            })
+            .eq('id', session.user.id);
+        
+        if (updateError) throw updateError;
+        
+        status.textContent = '✅ Zashi account linked successfully!';
+        status.style.color = '#27ae60';
+        console.log('Zashi account linked:', cleanUsername);
+        
+    } catch (err) {
+        console.error('Zashi link error:', err);
+        status.textContent = '❌ ' + (err.message || 'Failed to link Zashi account');
+        status.style.color = '#e74c3c';
+    }
+}
+
+// === Submit Modal ===
+function showSubmitModal() {
+    document.getElementById('submitModal').classList.add('show');
+    document.getElementById('formStatus').style.display = 'none';
+}
+
+function hideSubmitModal() {
+    document.getElementById('submitModal').classList.remove('show');
+    document.getElementById('submitForm').reset();
+}
+
+document.getElementById('submitModal').addEventListener('click', function(e) {
+    if (e.target === this) hideSubmitModal();
+});
+
+async function submitProject(e) {
+    e.preventDefault();
+    const status = document.getElementById('formStatus');
+    status.style.display = 'none';
+
+    const name = document.getElementById('formName').value.trim();
+    const url = document.getElementById('formUrl').value.trim();
+    const icon = document.getElementById('formIcon').value.trim();
+    const author = document.getElementById('formAuthor').value.trim();
+    const repo = document.getElementById('formRepo').value.trim();
+    const foundation = document.getElementById('formFoundation').value.trim();
+    const description = document.getElementById('formDescription').value.trim();
+    const version = document.getElementById('formVersion').value.trim();
+    const tagsRaw = document.getElementById('formTags').value.trim();
+    const linksRaw = document.getElementById('formLinks').value.trim();
+
+    if (!name || !url || !icon || !author || !repo) {
+        showStatus(status, 'error', 'Please fill in all required fields.');
+        return;
+    }
+
+    const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+    const links = [];
+    if (linksRaw) {
+        linksRaw.split('\n').forEach(line => {
+            const parts = line.split('|').map(s => s.trim());
+            if (parts.length >= 2 && parts[0] && parts[1]) {
+                links.push({ label: parts[0], url: parts[1] });
+            }
+        });
+    }
+
+    const payload = {
+        name,
+        url,
+        icon,
+        author,
+        repo,
+        foundation: foundation || 'N/A',
+        description: description || '',
+        version: version || '1.0',
+        featured: false,
+        tags,
+        links: links.length ? links : [{ label: 'Main', url }]
+    };
+
+    try {
+        if (!window.supabase) {
+            throw new Error('Supabase chưa được cấu hình. Vui lòng liên hệ admin.');
+        }
+
+        // Get current user if logged in
+        const { data: { session } } = await window.supabase.auth.getSession();
+        if (session) {
+            payload.user_id = session.user.id;
+        }
+
+        console.log('Submitting payload:', payload);
+
+        const { data, error } = await window.supabase
+            .from('projects')
+            .insert([payload]);
+
+        if (error) {
+            console.error('Supabase insert error:', error);
+            throw error;
+        }
+        
+        console.log('Insert success:', data);
+
+        showStatus(status, 'success', '✅ Project submitted successfully! It will appear after review.');
+        document.getElementById('submitForm').reset();
+        setTimeout(() => hideSubmitModal(), 2000);
+    } catch (err) {
+        console.error('Submit error:', err);
+        showStatus(status, 'error', '❌ ' + (err.message || 'Submission failed. Please try again later.'));
+    }
+}
+
+function showStatus(el, type, msg) {
+    el.className = 'form-status ' + type;
+    el.textContent = msg;
+    el.style.display = 'block';
+}
 
 // === Init ===
 document.addEventListener('DOMContentLoaded', function() {
