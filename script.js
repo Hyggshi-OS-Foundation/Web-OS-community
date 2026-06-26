@@ -774,9 +774,6 @@ async function signUp(e) {
         const { data, error } = await window.supabase.auth.signUp({
             email: email,
             password: password,
-            options: {
-                email_confirm: false  // Disable email confirmation
-            }
         });
 
         if (error) {

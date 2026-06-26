@@ -1,6 +1,6 @@
 // Supabase Configuration - Web OS Community project
 const SUPABASE_URL = 'https://lkwlvoivjintumgmqxdw.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxrd2x2b2l2amludHVtZ21xeGR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDc0MzUsImV4cCI6MjA5Nzk4MzQzNX0.Gmy5KhG6XO8djN2HmTx-CpP1BPSk9i24pUZ9oyN3N8k';
+const SUPABASE_ANON_KEY = 'sb_publishable_ne6NfWe5qXIHBmotY7MZ1w_axdrUdwJ';
 
 // Initialize Supabase from global UMD build
 function initSupabase() {
