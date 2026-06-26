@@ -558,23 +558,22 @@ async function linkZashiAccount() {
         const ZASHI_KEY = 'sb_publishable_cj9pOUvJFPdOEtZCziWULQ_c-Ch1xPb';
         
         // Query Zashi database to check if user exists
-        const response = await fetch(`${ZASHI_URL}/rest/v1/profiles?username=eq.${cleanUsername}`, {
+        const response = await fetch(`${ZASHI_URL}/rest/v1/profiles?username=eq.${encodeURIComponent(cleanUsername)}`, {
             headers: {
                 'apikey': ZASHI_KEY,
                 'Authorization': `Bearer ${ZASHI_KEY}`
             }
         });
         
+        // If Zashi DB doesn't exist or user not found, still allow linking
         if (!response.ok) {
-            throw new Error('Failed to verify Zashi account');
-        }
-        
-        const zashiData = await response.json();
-        
-        if (!zashiData || zashiData.length === 0) {
-            status.textContent = '❌ Zashi account not found. Please check the username.';
-            status.style.color = '#e74c3c';
-            return;
+            console.warn('Zashi verification skipped (DB not accessible)');
+        } else {
+            const zashiData = await response.json();
+            if (!zashiData || zashiData.length === 0) {
+                status.textContent = '⚠️ Zashi account not found, but linked anyway.';
+                status.style.color = '#f1c40f';
+            }
         }
         
         // Update current user's profile with Zashi info
