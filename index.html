@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,11 +8,12 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
+
 <body>
     <div class="theme-toggle" onclick="toggleTheme()">
         <span id="themeIcon">☀️</span>
     </div>
-    
+
     <div class="account-toggle" onclick="showAccountModal()">
         <span id="accountIcon">👤</span>
     </div>
@@ -63,7 +65,8 @@
             <div class="modal-preview">
                 <iframe id="modalIframe" src="" sandbox="allow-scripts allow-forms" loading="lazy"></iframe>
                 <div class="preview-loading" id="previewLoading">Loading preview...</div>
-                <div class="preview-unavailable" id="previewUnavailable" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--text-muted);">
+                <div class="preview-unavailable" id="previewUnavailable"
+                    style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--text-muted);">
                     <p style="font-size: 48px; margin-bottom: 10px;">⚠️</p>
                     <p>Preview unavailable</p>
                     <p style="font-size: 12px; margin-top: 5px;">The website may block embedding</p>
@@ -133,7 +136,8 @@
             </div>
             <div class="modal-buttons">
                 <button class="modal-btn modal-btn-cancel" onclick="hideInfoModal()">Close</button>
-                <button class="modal-btn modal-btn-launch" id="infoRepoBtn" onclick="openInfoRepo()">View on GitHub</button>
+                <button class="modal-btn modal-btn-launch" id="infoRepoBtn" onclick="openInfoRepo()">View on
+                    GitHub</button>
             </div>
         </div>
     </div>
@@ -165,12 +169,25 @@
                         <input type="url" id="formIcon" required placeholder="https://example.com/logo.png">
                     </div>
                     <div class="form-group">
-                        <label for="formAuthor">GitHub Username *</label>
-                        <input type="text" id="formAuthor" required placeholder="your-username">
+                        <label for="formRepoProvider">Source Provider *</label>
+                        <select id="formRepoProvider">
+                            <option value="github">GitHub</option>
+                            <option value="gitlab">GitLab</option>
+                            <option value="codeberg">Codeberg</option>
+                            <option value="gitea">Gitea</option>
+                            <option value="sourcehut">SourceHut</option>
+                            <option value="bitbucket">Bitbucket</option>
+                            <option value="self-hosted">Self-hosted Git</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-full">
+                        <label for="formRepoUrl">Repository URL *</label>
+                        <input type="url" id="formRepoUrl" required placeholder="https://github.com/username/repo">
                     </div>
                     <div class="form-group">
-                        <label for="formRepo">Repository Name *</label>
-                        <input type="text" id="formRepo" required placeholder="your-repo">
+                        <label for="formHomepage">Homepage URL</label>
+                        <input type="url" id="formHomepage" placeholder="https://your-project-homepage.com">
                     </div>
                     <div class="form-group">
                         <label for="formFoundation">Foundation</label>
@@ -178,7 +195,34 @@
                     </div>
                     <div class="form-group form-full">
                         <label for="formDescription">Description</label>
-                        <textarea id="formDescription" rows="3" placeholder="A short description of your web OS..."></textarea>
+                        <textarea id="formDescription" rows="3"
+                            placeholder="A short description of your web OS..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="formCategory">Category</label>
+                        <select id="formCategory">
+                            <option value="Desktop">Desktop Environment</option>
+                            <option value="Mobile">Mobile OS</option>
+                            <option value="Server">Server OS</option>
+                            <option value="IoT">IoT / Embedded</option>
+                            <option value="Gaming">Gaming OS</option>
+                            <option value="Educational">Educational</option>
+                            <option value="Minimalist">Minimalist</option>
+                            <option value="Full-featured">Full-featured</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="formTargetAudience">Target Audience</label>
+                        <select id="formTargetAudience">
+                            <option value="General">General Users</option>
+                            <option value="Developers">Developers</option>
+                            <option value="Students">Students</option>
+                            <option value="Enterprise">Enterprise</option>
+                            <option value="Hobbyists">Hobbyists</option>
+                            <option value="Education">Education</option>
+                            <option value="Other">Other</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="formVersion">Version</label>
@@ -188,18 +232,34 @@
                         <label for="formLicense">License</label>
                         <select id="formLicense">
                             <option value="MIT">MIT</option>
-                            <option value="GPL">GPL</option>
-                            <option value="Apache">Apache</option>
+                            <option value="Apache-2.0">Apache 2.0</option>
+                            <option value="GPL-2.0">GPL 2.0</option>
+                            <option value="GPL-3.0">GPL 3.0</option>
+                            <option value="LGPL-3.0">LGPL 3.0</option>
+                            <option value="BSD-3-Clause">BSD 3-Clause</option>
+                            <option value="BSD-2-Clause">BSD 2-Clause</option>
+                            <option value="MPL-2.0">Mozilla Public License 2.0</option>
+                            <option value="Unlicense">The Unlicense</option>
+                            <option value="CC0-1.0">CC0 1.0</option>
                             <option value="Proprietary">Proprietary</option>
-                            <option value="HOSL-1.3 – Hyggshi OS License v1.3">HOSL-1.3 – Hyggshi OS License v1.3</option>
+                            <option value="HOSL-1.3 – Hyggshi OS License v1.3">HOSL-1.3 – Hyggshi OS License v1.3
+                            </option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label for="formPlatform">Platform</label>
                         <select id="formPlatform">
                             <option value="Netlify">Netlify</option>
-                            <option value="Cloudflare">Cloudflare</option>
+                            <option value="Vercel">Vercel</option>
+                            <option value="Cloudflare Pages">Cloudflare Pages</option>
                             <option value="GitHub Pages">GitHub Pages</option>
+                            <option value="GitLab Pages">GitLab Pages</option>
+                            <option value="Firebase Hosting">Firebase Hosting</option>
+                            <option value="AWS Amplify">AWS Amplify</option>
+                            <option value="Azure Static Web Apps">Azure Static Web Apps</option>
+                            <option value="Render">Render</option>
+                            <option value="Railway">Railway</option>
+                            <option value="Fly.io">Fly.io</option>
                             <option value="Self-hosted">Self-hosted</option>
                         </select>
                     </div>
@@ -208,7 +268,11 @@
                         <select id="formStatusSelect">
                             <option value="Stable">Stable</option>
                             <option value="Beta">Beta</option>
+                            <option value="Alpha">Alpha</option>
                             <option value="Experimental">Experimental</option>
+                            <option value="Development">Development</option>
+                            <option value="Discontinued">Discontinued</option>
+                            <option value="Archived">Archived</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -217,7 +281,8 @@
                     </div>
                     <div class="form-group form-full">
                         <label for="formLinks">Links (one per line: Label | URL)</label>
-                        <textarea id="formLinks" rows="3" placeholder="Main | https://...&#10;Dev | https://..."></textarea>
+                        <textarea id="formLinks" rows="3"
+                            placeholder="Main | https://...&#10;Dev | https://..."></textarea>
                     </div>
                 </div>
                 <div class="form-group form-full">
@@ -238,12 +303,14 @@
         <div class="modal-content modal-lg" style="max-width: 900px;">
             <button class="modal-close" onclick="hideLicenseModal()">&times;</button>
             <h2 class="form-title">HOSL-1.3 – Hyggshi OS License v1.3</h2>
-            <div id="licenseContent" style="max-height: 70vh; overflow-y: auto; text-align: left; padding: 10px; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--card-border);">
+            <div id="licenseContent"
+                style="max-height: 70vh; overflow-y: auto; text-align: left; padding: 10px; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--card-border);">
                 <!-- Content will be loaded here -->
             </div>
             <div class="modal-buttons">
                 <button class="modal-btn modal-btn-cancel" onclick="hideLicenseModal()">Close</button>
-                <button class="modal-btn modal-btn-launch" onclick="window.open('license/hosl-1.3.html', '_blank')">Open in new tab</button>
+                <button class="modal-btn modal-btn-launch" onclick="window.open('license/hosl-1.3.html', '_blank')">Open
+                    in new tab</button>
             </div>
         </div>
     </div>
@@ -254,48 +321,57 @@
             <button class="modal-close" onclick="hideAccountModal()">&times;</button>
             <h2 class="form-title">👤 Account</h2>
             <p class="form-subtitle" id="accountStatusText">Sign in or create an account</p>
-            
+
             <div id="authForms">
                 <!-- Sign In Form -->
                 <form id="signInForm" onsubmit="signIn(event)">
                     <div class="form-grid">
                         <div class="form-group form-full">
                             <label for="signInUsername">Username *</label>
-                            <input type="text" id="signInUsername" required placeholder="your-username" minlength="3" pattern="[A-Za-z0-9_ ]{3,32}">
+                            <input type="text" id="signInUsername" required placeholder="your-username" minlength="3"
+                                pattern="[A-Za-z0-9_ ]{3,32}">
                         </div>
                         <div class="form-group form-full password-group">
                             <label for="signInPassword">Password *</label>
                             <div class="password-wrapper">
-                                <input type="password" id="signInPassword" required placeholder="••••••••" minlength="6">
-                                <span class="password-toggle" onclick="togglePassword('signInPassword', this)">👁️</span>
+                                <input type="password" id="signInPassword" required placeholder="••••••••"
+                                    minlength="6">
+                                <span class="password-toggle"
+                                    onclick="togglePassword('signInPassword', this)">👁️</span>
                             </div>
                         </div>
                     </div>
                     <div class="form-status" id="signInStatus"></div>
                     <div class="modal-buttons">
-                        <button type="button" class="modal-btn modal-btn-cancel" onclick="hideAccountModal()">Cancel</button>
+                        <button type="button" class="modal-btn modal-btn-cancel"
+                            onclick="hideAccountModal()">Cancel</button>
                         <button type="submit" class="modal-btn modal-btn-launch">Sign In</button>
                     </div>
                 </form>
 
                 <!-- Sign Up Form -->
-                <form id="signUpForm" onsubmit="signUp(event)" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-light);">
+                <form id="signUpForm" onsubmit="signUp(event)"
+                    style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-light);">
                     <div class="form-grid">
                         <div class="form-group form-full">
                             <label for="signUpUsername">Username *</label>
-                            <input type="text" id="signUpUsername" required placeholder="your-username" minlength="3" pattern="[A-Za-z0-9_ ]{3,32}">
+                            <input type="text" id="signUpUsername" required placeholder="your-username" minlength="3"
+                                pattern="[A-Za-z0-9_ ]{3,32}">
                         </div>
                         <div class="form-group form-full password-group">
                             <label for="signUpPassword">Password *</label>
                             <div class="password-wrapper">
-                                <input type="password" id="signUpPassword" required placeholder="••••••••" minlength="6">
-                                <span class="password-toggle" onclick="togglePassword('signUpPassword', this)">👁️</span>
+                                <input type="password" id="signUpPassword" required placeholder="••••••••"
+                                    minlength="6">
+                                <span class="password-toggle"
+                                    onclick="togglePassword('signUpPassword', this)">👁️</span>
                             </div>
                         </div>
                     </div>
                     <div class="form-status" id="signUpStatus"></div>
                     <div class="modal-buttons">
-                        <button type="button" class="modal-btn modal-btn-cancel" onclick="hideAccountModal()">Cancel</button>
+                        <button type="button" class="modal-btn modal-btn-cancel"
+                            onclick="hideAccountModal()">Cancel</button>
                         <button type="submit" class="modal-btn modal-btn-launch">Create Account</button>
                     </div>
                 </form>
@@ -306,13 +382,18 @@
                 <div class="profile-banner" id="profileBanner"></div>
                 <div class="profile-avatar" id="profileAvatar"></div>
                 <div class="profile-info">
-                    <h3 id="userName" style="color: var(--text); font-size: 18px; font-weight: 700; margin-bottom: 4px;"></h3>
+                    <h3 id="userName"
+                        style="color: var(--text); font-size: 18px; font-weight: 700; margin-bottom: 4px;"></h3>
                     <p id="userBio" style="color: var(--text-secondary); font-size: 13px;"></p>
                     <p id="userColor" style="font-size: 12px; margin-top: 4px;"></p>
                 </div>
-                <div id="adminQuickActions" style="display: none; margin: 15px 0; padding: 10px; border-radius: 8px; background: rgba(233, 69, 96, 0.1); border: 1px solid var(--accent);">
-                    <p style="color: var(--accent); font-size: 12px; font-weight: bold; margin-bottom: 8px;">🛡️ ADMIN ACTIONS</p>
-                    <button type="button" class="modal-btn modal-btn-launch" style="padding: 6px 12px; font-size: 11px; background: var(--accent);" onclick="openAdminApprovalPanel()">Manage Submissions</button>
+                <div id="adminQuickActions"
+                    style="display: none; margin: 15px 0; padding: 10px; border-radius: 8px; background: rgba(233, 69, 96, 0.1); border: 1px solid var(--accent);">
+                    <p style="color: var(--accent); font-size: 12px; font-weight: bold; margin-bottom: 8px;">🛡️ ADMIN
+                        ACTIONS</p>
+                    <button type="button" class="modal-btn modal-btn-launch"
+                        style="padding: 6px 12px; font-size: 11px; background: var(--accent);"
+                        onclick="openAdminApprovalPanel()">Manage Submissions</button>
                 </div>
                 <div class="modal-buttons" style="margin-top: 15px;">
                     <button type="button" class="modal-btn modal-btn-cancel" onclick="hideAccountModal()">Close</button>
@@ -324,33 +405,188 @@
 
     <!-- Admin Approval Modal -->
     <div class="modal-overlay" id="adminModal">
-        <div class="modal-content modal-lg">
+        <div class="modal-content modal-lg" style="max-width: 900px;">
             <button class="modal-close" onclick="hideAdminModal()">&times;</button>
             <h2 class="form-title">🛡️ Admin OS Approvals</h2>
-            <p class="form-subtitle">Duyệt hoặc Từ chối các dự án Web OS do cộng đồng gửi lên.</p>
-            
-            <div class="admin-table-container">
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Web OS</th>
-                            <th>Người gửi</th>
-                            <th>Thông tin GitHub</th>
-                            <th>Hành động</th>
-                        </tr>
-                    </thead>
-                    <tbody id="adminPendingList">
-                        <!-- Danh sách hàng đợi duyệt sẽ được nạp tại đây bằng JS -->
-                    </tbody>
-                </table>
-                <div id="adminNoPending" style="display: none; text-align: center; padding: 30px; color: var(--text-muted);">
-                    <p style="font-size: 32px; margin-bottom: 8px;">🎉</p>
-                    <p>Không có dự án nào đang chờ duyệt!</p>
+            <p class="form-subtitle">Manage Web OS projects in the community.</p>
+
+            <!-- Tabs -->
+            <div class="admin-tabs">
+                <button class="admin-tab active" onclick="switchAdminTab('pending', this)">⏳ Pending Approval</button>
+                <button class="admin-tab" onclick="switchAdminTab('all', this)">📋 All Projects</button>
+            </div>
+
+            <!-- Tab: Pending -->
+            <div id="adminTabPending" class="admin-tab-content">
+                <div class="admin-table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Web OS</th>
+                                <th>Submitter</th>
+                                <th>GitHub Info</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminPendingList"></tbody>
+                    </table>
+                    <div id="adminNoPending"
+                        style="display:none; text-align:center; padding:30px; color:var(--text-muted);">
+                        <p style="font-size:32px; margin-bottom:8px;">🎉</p>
+                        <p>No projects pending approval!</p>
+                    </div>
                 </div>
             </div>
-            
-            <div class="modal-buttons" style="margin-top: 20px;">
-                <button type="button" class="modal-btn modal-btn-cancel" onclick="hideAdminModal()">Đóng</button>
+
+            <!-- Tab: All Projects -->
+            <div id="adminTabAll" class="admin-tab-content" style="display:none;">
+                <div style="margin-bottom:10px; display:flex; gap:8px; align-items:center;">
+                    <input type="text" id="adminSearchInput" placeholder="🔍 Search projects..." oninput="filterAdminList()"
+                        style="flex:1; padding:8px 14px; border:2px solid var(--input-border); border-radius:10px; background:var(--input-bg); color:var(--text); font-size:13px; outline:none;">
+                    <select id="adminStatusFilter" onchange="filterAdminList()"
+                        style="padding:8px 14px; border:2px solid var(--input-border); border-radius:10px; background:var(--input-bg); color:var(--text); font-size:13px; outline:none; cursor:pointer;">
+                        <option value="all">All Status</option>
+                        <option value="approved">✅ Approved</option>
+                        <option value="pending">⏳ Pending</option>
+                    </select>
+                </div>
+                <div class="admin-table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Web OS</th>
+                                <th>Submitter</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminAllList"></tbody>
+                    </table>
+                    <div id="adminNoAll"
+                        style="display:none; text-align:center; padding:30px; color:var(--text-muted);">
+                        <p style="font-size:32px; margin-bottom:8px;">📭</p>
+                        <p>No projects found.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-buttons" style="margin-top:20px;">
+                <button type="button" class="modal-btn modal-btn-cancel" onclick="hideAdminModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Project Modal -->
+    <div class="modal-overlay" id="editProjectModal">
+        <div class="modal-content modal-form" style="max-width:650px;">
+            <button class="modal-close" onclick="hideEditModal()">&times;</button>
+            <h2 class="form-title">✏️ Edit Project</h2>
+            <p class="form-subtitle" id="editProjectId" style="display:none;"></p>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>OS Name *</label>
+                    <input type="text" id="editName" required placeholder="Project name">
+                </div>
+                <div class="form-group">
+                    <label>Live URL *</label>
+                    <input type="url" id="editUrl" required placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label>Icon URL *</label>
+                    <input type="url" id="editIcon" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                    <label>GitHub Username *</label>
+                    <input type="text" id="editAuthor" placeholder="username">
+                </div>
+                <div class="form-group">
+                    <label>Repository *</label>
+                    <input type="text" id="editRepo" placeholder="repo-name">
+                </div>
+                <div class="form-group">
+                    <label>Foundation</label>
+                    <input type="text" id="editFoundation" placeholder="Foundation (optional)">
+                </div>
+                <div class="form-group form-full">
+                    <label>Description</label>
+                    <textarea id="editDescription" rows="2" placeholder="Short description..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Version</label>
+                    <input type="text" id="editVersion" placeholder="1.0">
+                </div>
+                <div class="form-group">
+                    <label>License</label>
+                    <select id="editLicense">
+                        <option value="MIT">MIT</option>
+                        <option value="Apache-2.0">Apache 2.0</option>
+                        <option value="GPL-2.0">GPL 2.0</option>
+                        <option value="GPL-3.0">GPL 3.0</option>
+                        <option value="LGPL-3.0">LGPL 3.0</option>
+                        <option value="BSD-3-Clause">BSD 3-Clause</option>
+                        <option value="BSD-2-Clause">BSD 2-Clause</option>
+                        <option value="MPL-2.0">Mozilla Public License 2.0</option>
+                        <option value="Unlicense">The Unlicense</option>
+                        <option value="CC0-1.0">CC0 1.0</option>
+                        <option value="Proprietary">Proprietary</option>
+                        <option value="HOSL-1.3 – Hyggshi OS License v1.3">HOSL-1.3</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Platform</label>
+                    <select id="editPlatform">
+                        <option value="Netlify">Netlify</option>
+                        <option value="Vercel">Vercel</option>
+                        <option value="Cloudflare Pages">Cloudflare Pages</option>
+                        <option value="GitHub Pages">GitHub Pages</option>
+                        <option value="GitLab Pages">GitLab Pages</option>
+                        <option value="Firebase Hosting">Firebase Hosting</option>
+                        <option value="AWS Amplify">AWS Amplify</option>
+                        <option value="Azure Static Web Apps">Azure Static Web Apps</option>
+                        <option value="Render">Render</option>
+                        <option value="Railway">Railway</option>
+                        <option value="Fly.io">Fly.io</option>
+                        <option value="Self-hosted">Self-hosted</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="editStatus">
+                        <option value="Stable">Stable</option>
+                        <option value="Beta">Beta</option>
+                        <option value="Alpha">Alpha</option>
+                        <option value="Experimental">Experimental</option>
+                        <option value="Development">Development</option>
+                        <option value="Discontinued">Discontinued</option>
+                        <option value="Archived">Archived</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Approval Status</label>
+                    <select id="editApprovalStatus">
+                        <option value="approved">✅ Approved</option>
+                        <option value="pending">⏳ Pending</option>
+                    </select>
+                </div>
+                <div class="form-group form-full">
+                    <label>Featured</label>
+                    <select id="editFeatured">
+                        <option value="false">Not Featured</option>
+                        <option value="true">⭐ Featured</option>
+                    </select>
+                </div>
+                <div class="form-group form-full">
+                    <label>Tags (comma separated)</label>
+                    <input type="text" id="editTags" placeholder="webos, demo, lightweight">
+                </div>
+            </div>
+
+            <div class="form-status" id="editStatus2"></div>
+
+            <div class="modal-buttons" style="margin-top:20px;">
+                <button type="button" class="modal-btn modal-btn-cancel" onclick="hideEditModal()">Cancel</button>
+                <button type="button" class="modal-btn modal-btn-launch" onclick="saveEditProject()">💾 Save Changes</button>
             </div>
         </div>
     </div>
@@ -359,4 +595,5 @@
     <script src="supabase.js"></script>
     <script src="script.js"></script>
 </body>
+
 </html>

@@ -97,6 +97,11 @@ async function buildCards() {
     initTags();
     initRatings();
     initDropdowns();
+
+    // Load global ratings từ Supabase cho tất cả cards
+    document.querySelectorAll('.card').forEach(card => {
+        loadAverageRating(card.getAttribute('data-name'));
+    });
 }
 
 function mapProjectToCard(p) {
@@ -179,7 +184,7 @@ function filterCards() {
     });
 }
 
-// === Rating System ===
+// === Rating System (Global via Supabase) ===
 function renderStars(container, rating, cardName) {
     container.innerHTML = '';
     for (let i = 1; i <= 5; i++) {
@@ -188,16 +193,16 @@ function renderStars(container, rating, cardName) {
         star.textContent = '★';
         star.dataset.value = i;
 
-        star.addEventListener('mouseenter', function() {
+        star.addEventListener('mouseenter', function () {
             const siblings = this.parentElement.querySelectorAll('.star');
             siblings.forEach((s, idx) => s.classList.toggle('hover', idx < i));
         });
 
-        star.addEventListener('mouseleave', function() {
+        star.addEventListener('mouseleave', function () {
             this.parentElement.querySelectorAll('.star').forEach(s => s.classList.remove('hover'));
         });
 
-        star.addEventListener('click', function() {
+        star.addEventListener('click', function () {
             setRating(cardName, parseInt(this.dataset.value));
         });
 
@@ -205,11 +210,104 @@ function renderStars(container, rating, cardName) {
     }
 }
 
-function setRating(cardName, value) {
+async function setRating(cardName, value) {
+    const user = getCurrentUser();
+    if (!user) {
+        alert('Please sign in to rate! 🌟');
+        showAccountModal();
+        return;
+    }
+
+    // Cập nhật local ngay để UX mượt
     ratings[cardName] = value;
     localStorage.setItem('osRatings', JSON.stringify(ratings));
     updateAllRatings();
-    updateRatingCounts();
+
+    // Sync lên Supabase
+    if (window.supabase) {
+        try {
+            const { error } = await window.supabase
+                .from('ratings')
+                .upsert(
+                    {
+                        project_name: cardName,
+                        user_id: user.id,
+                        rating: value
+                    },
+                    { onConflict: 'project_name,user_id' }
+                );
+
+            if (error) {
+                console.error('Rating sync error:', error);
+            } else {
+                // Reload average sau khi upsert thành công
+                await loadAverageRating(cardName);
+            }
+        } catch (err) {
+            console.warn('Rating sync failed (offline?):', err);
+            // Vẫn hiển thị local rating nếu offline
+            updateRatingCounts();
+        }
+    } else {
+        updateRatingCounts();
+    }
+}
+
+// Load rating trung bình từ Supabase cho 1 project
+async function loadAverageRating(cardName) {
+    if (!window.supabase) {
+        updateRatingCounts();
+        return;
+    }
+
+    try {
+        const { data, error } = await window.supabase
+            .from('ratings')
+            .select('rating, user_id')
+            .eq('project_name', cardName);
+
+        if (error || !data || data.length === 0) {
+            // Không có global rating → fallback local
+            updateRatingCountSingle(cardName);
+            return;
+        }
+
+        const avg = data.reduce((s, r) => s + r.rating, 0) / data.length;
+        const count = data.length;
+
+        // Lấy rating của user hiện tại (nếu có)
+        const user = getCurrentUser();
+        const myRating = user
+            ? (data.find(r => r.user_id === user.id)?.rating || ratings[cardName] || 0)
+            : (ratings[cardName] || 0);
+
+        // Update stars theo rating của user hiện tại
+        document.querySelectorAll(`.card[data-name="${CSS.escape(cardName)}"]`).forEach(card => {
+            const starContainer = card.querySelector('.stars');
+            if (starContainer) {
+                starContainer.querySelectorAll('.star').forEach((s, idx) =>
+                    s.classList.toggle('active', idx < myRating)
+                );
+            }
+
+            const countEl = card.querySelector('.rating-count');
+            if (countEl) {
+                countEl.textContent = `⭐ ${avg.toFixed(1)} (${count} votes)`;
+            }
+        });
+    } catch (err) {
+        console.warn('loadAverageRating error:', err);
+        updateRatingCountSingle(cardName);
+    }
+}
+
+// Fallback: hiển thị local rating cho 1 card
+function updateRatingCountSingle(cardName) {
+    const r = ratings[cardName] || 0;
+    document.querySelectorAll(`.card[data-name="${CSS.escape(cardName)}"]`).forEach(card => {
+        const countEl = card.querySelector('.rating-count');
+        if (countEl) countEl.textContent = r > 0 ? `${r}/5` : '';
+    });
 }
 
 function updateAllRatings() {
@@ -245,13 +343,13 @@ function initRatings() {
 function initDropdowns() {
     document.querySelectorAll('.btn-group').forEach(group => {
         let hoverTimer;
-        group.addEventListener('mouseenter', function() {
+        group.addEventListener('mouseenter', function () {
             clearTimeout(hoverTimer);
             const menu = this.querySelector('.dropdown-menu');
             document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
             if (menu) menu.classList.add('show');
         });
-        group.addEventListener('mouseleave', function() {
+        group.addEventListener('mouseleave', function () {
             hoverTimer = setTimeout(() => {
                 const menu = this.querySelector('.dropdown-menu.show');
                 if (menu) menu.classList.remove('show');
@@ -267,7 +365,7 @@ function toggleDropdown(btn) {
     if (!isOpen) menu.classList.add('show');
 }
 
-document.addEventListener('click', function(e) {
+document.addEventListener('click', function (e) {
     if (!e.target.closest('.btn-group')) {
         document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
     }
@@ -283,9 +381,9 @@ function showLaunchModal(btn) {
     pendingUrl = url;
     document.getElementById('modalLogo').src = imgSrc;
     document.getElementById('modalTitle').textContent = 'Launching ' + name;
-    
+
     const isFileProtocol = window.location.protocol === 'file:';
-    
+
     if (isFileProtocol) {
         document.getElementById('previewLoading').style.display = 'none';
         document.getElementById('modalIframe').style.display = 'none';
@@ -297,10 +395,10 @@ function showLaunchModal(btn) {
         document.getElementById('previewLoading').style.display = 'block';
         document.getElementById('modalIframe').style.display = 'none';
         document.getElementById('previewUnavailable').style.display = 'none';
-        
+
         const iframe = document.getElementById('modalIframe');
         iframe.src = url;
-        
+
         setTimeout(() => {
             if (document.getElementById('previewLoading').style.display !== 'none') {
                 document.getElementById('previewLoading').style.display = 'none';
@@ -310,7 +408,7 @@ function showLaunchModal(btn) {
             }
         }, 3000);
     }
-    
+
     document.getElementById('launchModal').classList.add('show');
 }
 
@@ -325,17 +423,17 @@ function hideLaunchModal() {
     pendingUrl = '';
 }
 
-document.getElementById('modalIframe').addEventListener('load', function() {
+document.getElementById('modalIframe').addEventListener('load', function () {
     document.getElementById('previewLoading').style.display = 'none';
     this.style.display = 'block';
     document.getElementById('previewUnavailable').style.display = 'none';
 });
 
-document.getElementById('modalLaunchBtn').addEventListener('click', function() {
+document.getElementById('modalLaunchBtn').addEventListener('click', function () {
     if (pendingUrl) { goto(pendingUrl); hideLaunchModal(); }
 });
 
-document.getElementById('launchModal').addEventListener('click', function(e) {
+document.getElementById('launchModal').addEventListener('click', function (e) {
     if (e.target === this) hideLaunchModal();
 });
 
@@ -383,7 +481,7 @@ function showInfoModal(btn) {
 
 function formatDate(dateStr) {
     const date = new Date(dateStr);
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return months[date.getMonth()] + ' ' + date.getDate() + ', ' + date.getFullYear();
 }
 
@@ -407,7 +505,7 @@ function openInfoRepo() {
     if (pendingRepo) { goto(pendingRepo); hideInfoModal(); }
 }
 
-document.getElementById('infoModal').addEventListener('click', function(e) {
+document.getElementById('infoModal').addEventListener('click', function (e) {
     if (e.target === this) hideInfoModal();
 });
 
@@ -415,7 +513,7 @@ document.getElementById('infoModal').addEventListener('click', function(e) {
 async function showLicenseModal() {
     const modal = document.getElementById('licenseModal');
     const content = document.getElementById('licenseContent');
-    
+
     if (!content.innerHTML.trim()) {
         try {
             const response = await fetch('license/hosl-1.3.html');
@@ -433,7 +531,7 @@ async function showLicenseModal() {
             content.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 40px;">Failed to load license. <a href="license/hosl-1.3.html" target="_blank" style="color: var(--accent);">Open in new tab</a></p>';
         }
     }
-    
+
     modal.classList.add('show');
 }
 
@@ -441,7 +539,7 @@ function hideLicenseModal() {
     document.getElementById('licenseModal').classList.remove('show');
 }
 
-document.getElementById('licenseModal').addEventListener('click', function(e) {
+document.getElementById('licenseModal').addEventListener('click', function (e) {
     if (e.target === this) hideLicenseModal();
 });
 
@@ -452,7 +550,7 @@ function generateVerifyQuestion() {
     const ops = ['+', '-', '*'];
     const op = ops[Math.floor(Math.random() * ops.length)];
     let a, b, question;
-    
+
     switch (op) {
         case '+':
             a = Math.floor(Math.random() * 50) + 5;
@@ -473,7 +571,7 @@ function generateVerifyQuestion() {
             verifyAnswer = a * b;
             break;
     }
-    
+
     document.getElementById('verifyQuestion').textContent = question;
 }
 
@@ -496,7 +594,7 @@ function hideSubmitModal() {
     document.getElementById('submitForm').reset();
 }
 
-document.getElementById('submitModal').addEventListener('click', function(e) {
+document.getElementById('submitModal').addEventListener('click', function (e) {
     if (e.target === this) hideSubmitModal();
 });
 
@@ -531,39 +629,58 @@ async function submitProject(e) {
     const name = document.getElementById('formName').value.trim();
     const url = document.getElementById('formUrl').value.trim();
     const icon = document.getElementById('formIcon').value.trim();
-    const author = document.getElementById('formAuthor').value.trim();
-    const repo = document.getElementById('formRepo').value.trim();
+    const repoProvider = document.getElementById('formRepoProvider').value;
+    const repoUrl = document.getElementById('formRepoUrl').value.trim();
+
+    // Parse repository URL to extract author and repo name
+    let author = 'N/A';
+    let repo = 'N/A';
     
-    const pathTraversalRegex = /(\.\.\/|\.\.\\)/i;
-    if (pathTraversalRegex.test(author) || pathTraversalRegex.test(repo)) {
-        showStatus(status, 'error', '❌ Invalid GitHub credentials detected.');
+    try {
+        const urlObj = new URL(repoUrl);
+        const pathParts = urlObj.pathname.split('/').filter(part => part.length > 0);
+        
+        if (pathParts.length >= 2) {
+            author = pathParts[0];
+            repo = pathParts[1];
+        }
+    } catch (e) {
+        showStatus(status, 'error', '❌ Invalid repository URL format.');
         return;
     }
 
-    showStatus(status, 'processing', '⏳ Verifying GitHub repository...');
-    
-    try {
-        const ghResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(author)}/${encodeURIComponent(repo)}`, {
-            headers: { 'Accept': 'application/vnd.github.v3+json' }
-        });
-        
-        if (!ghResponse.ok) {
-            if (ghResponse.status === 404) {
-                showStatus(status, 'error', '❌ GitHub repository not found. Please verify your GitHub username and repository name are correct and public.');
-                return;
-            } else if (ghResponse.status === 403) {
-                console.warn('GitHub API rate limited, skipping verification');
-            } else {
-                showStatus(status, 'error', '❌ GitHub verification failed (HTTP ' + ghResponse.status + '). Please try again.');
-                return;
+    // Verify repository based on provider
+    if (repoProvider === 'github') {
+        showStatus(status, 'processing', '⏳ Verifying GitHub repository...');
+
+        try {
+            const ghResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(author)}/${encodeURIComponent(repo)}`, {
+                headers: { 'Accept': 'application/vnd.github.v3+json' }
+            });
+
+            if (!ghResponse.ok) {
+                if (ghResponse.status === 404) {
+                    showStatus(status, 'error', '❌ GitHub repository not found. Please verify the URL is correct and public.');
+                    return;
+                } else if (ghResponse.status === 403) {
+                    console.warn('GitHub API rate limited, skipping verification');
+                } else {
+                    showStatus(status, 'error', '❌ GitHub verification failed (HTTP ' + ghResponse.status + '). Please try again.');
+                    return;
+                }
             }
+        } catch (err) {
+            console.warn('GitHub API error (network issue), skipping verification:', err);
         }
-    } catch (err) {
-        console.warn('GitHub API error (network issue), skipping verification:', err);
+    } else {
+        console.log('Skipping verification for non-GitHub provider:', repoProvider);
     }
 
+    const homepage = document.getElementById('formHomepage').value.trim();
     const foundation = document.getElementById('formFoundation').value.trim();
     const description = document.getElementById('formDescription').value.trim();
+    const category = document.getElementById('formCategory').value;
+    const targetAudience = document.getElementById('formTargetAudience').value;
     const version = document.getElementById('formVersion').value.trim();
     const license = document.getElementById('formLicense').value;
     const platform = document.getElementById('formPlatform').value;
@@ -571,9 +688,18 @@ async function submitProject(e) {
     const tagsRaw = document.getElementById('formTags').value.trim();
     const linksRaw = document.getElementById('formLinks').value.trim();
 
-    if (!name || !url || !icon || !author || !repo) {
+    if (!name || !url || !icon || !repoUrl) {
         showStatus(status, 'error', 'Please fill in all required fields.');
         return;
+    }
+
+    // Validate URL format based on provider
+    if (repoProvider === 'github') {
+        const githubRegex = /^https?:\/\/github\.com\/[^\/]+\/[^\/]+/;
+        if (!githubRegex.test(repoUrl)) {
+            showStatus(status, 'error', '❌ Invalid GitHub URL format. Expected: https://github.com/username/repo');
+            return;
+        }
     }
 
     const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
@@ -587,14 +713,22 @@ async function submitProject(e) {
         });
     }
 
+    // Handle repository field
+    const hasRepo = repoUrl && repoUrl.length > 0;
+    
     const payload = {
         name,
         url,
         icon,
-        author,
-        repo,
+        author: author,
+        repo: repo,
+        has_repo: hasRepo,
+        repo_platform: repoProvider,
+        homepage: homepage || 'N/A',
         foundation: foundation || 'N/A',
         description: description || '',
+        category: category || 'Other',
+        target_audience: targetAudience || 'General',
         version: version || '1.0',
         license,
         platform,
@@ -602,12 +736,12 @@ async function submitProject(e) {
         featured: false,
         tags,
         links: links.length ? links : [{ label: 'Main', url }],
-        status: 'pending' // Thêm mặc định trạng thái 'pending' để Admin duyệt
+        status: 'pending'
     };
 
     try {
         if (!window.supabase) {
-            throw new Error('Supabase chưa được cấu hình. Vui lòng liên hệ admin.');
+            throw new Error('Supabase is not configured. Please contact admin.');
         }
 
         payload.submitter_id = user.id;
@@ -623,7 +757,7 @@ async function submitProject(e) {
             console.error('Supabase insert error:', error);
             throw error;
         }
-        
+
         console.log('Insert success:', data);
 
         showStatus(status, 'success', '✅ Project submitted successfully! It will appear after review.');
@@ -653,7 +787,7 @@ function hideAccountModal() {
     document.getElementById('signUpStatus').style.display = 'none';
 }
 
-document.getElementById('accountModal').addEventListener('click', function(e) {
+document.getElementById('accountModal').addEventListener('click', function (e) {
     if (e.target === this) hideAccountModal();
 });
 
@@ -666,13 +800,6 @@ function getInitials(username) {
     return username.substring(0, 2).toUpperCase();
 }
 
-// Kiểm tra quyền Admin
-function isAdmin(user) {
-    if (!user) return false;
-    const adminUsernames = ['hyggshi'];
-    return adminUsernames.includes(user.username.toLowerCase()) || user.is_admin === true;
-}
-
 async function updateAuthUI() {
     if (!window.supabase) {
         document.getElementById('accountStatusText').textContent = '⚠️ Supabase not configured';
@@ -683,23 +810,22 @@ async function updateAuthUI() {
 
     const user = getCurrentUser();
     const adminBadge = document.getElementById('adminBadge');
-    
+
     if (user) {
         document.getElementById('authForms').style.display = 'none';
         document.getElementById('loggedInView').style.display = 'block';
-        
+
         const banner = document.getElementById('profileBanner');
         banner.style.background = `linear-gradient(135deg, ${user.color} 0%, #333 100%)`;
-        
+
         const avatar = document.getElementById('profileAvatar');
         avatar.textContent = getInitials(user.username);
-        
+
         document.getElementById('userName').textContent = user.username;
         document.getElementById('userBio').textContent = user.bio || 'No bio yet';
         document.getElementById('userColor').textContent = '🎨 Color: ' + user.color;
         document.getElementById('accountStatusText').textContent = 'Signed in as ' + user.username;
 
-        // Xử lý quyền Admin
         if (isAdmin(user)) {
             document.getElementById('adminQuickActions').style.display = 'block';
             if (adminBadge) adminBadge.style.display = 'flex';
@@ -741,7 +867,7 @@ async function signIn(e) {
 
         console.log('Sign in success:', result.user);
         saveUserSession(result.user);
-        
+
         showStatus(status, 'success', '✅ Welcome back, ' + result.user.username + '!');
         setTimeout(() => {
             hideAccountModal();
@@ -796,7 +922,7 @@ async function signUp(e) {
 
         console.log('Sign up success:', result.user);
         saveUserSession(result.user);
-        
+
         showStatus(status, 'success', '✅ Welcome, ' + result.user.username + '!');
         setTimeout(() => {
             hideAccountModal();
@@ -852,14 +978,35 @@ function openAdminApprovalPanel() {
     showAdminModal();
 }
 
-// Nạp các dự án chờ duyệt từ cơ sở dữ liệu
+function switchAdminTab(tabName, btn) {
+    // Update active tab button
+    document.querySelectorAll('.admin-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    btn.classList.add('active');
+
+    // Show/hide tab content
+    const pendingTab = document.getElementById('adminTabPending');
+    const allTab = document.getElementById('adminTabAll');
+
+    if (tabName === 'pending') {
+        pendingTab.style.display = 'block';
+        allTab.style.display = 'none';
+        fetchPendingProjects();
+    } else if (tabName === 'all') {
+        pendingTab.style.display = 'none';
+        allTab.style.display = 'block';
+        fetchAllProjects();
+    }
+}
+
 async function fetchPendingProjects() {
     const listContainer = document.getElementById('adminPendingList');
     const noPendingContainer = document.getElementById('adminNoPending');
-    
+
     if (!window.supabase) return;
-    
-    listContainer.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">Đang nạp danh sách chờ...</td></tr>';
+
+    listContainer.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">Loading pending list...</td></tr>';
     noPendingContainer.style.display = 'none';
 
     try {
@@ -891,49 +1038,220 @@ async function fetchPendingProjects() {
                     </div>
                 </td>
                 <td>
-                    <span style="font-size:13px; color:var(--text-secondary);">${p.submitter_username || 'Ẩn danh'}</span>
+                    <span style="font-size:13px; color:var(--text-secondary);">${p.submitter_username || 'Anonymous'}</span>
                 </td>
                 <td>
                     <span style="font-size:12px; font-family:monospace; color:var(--text-muted);">${p.author}/${p.repo}</span>
                 </td>
                 <td>
                     <div class="admin-action-btns">
-                        <button class="admin-btn admin-btn-approve" onclick="approveProject('${p.id}')">Approve (Duyệt)</button>
-                        <button class="admin-btn admin-btn-reject" onclick="rejectProject('${p.id}')">Reject (Từ chối)</button>
+                        <button class="admin-btn admin-btn-approve" onclick="approveProject('${p.id}')">Approve</button>
+                        <button class="admin-btn admin-btn-reject" onclick="rejectProject('${p.id}')">Reject</button>
                     </div>
                 </td>
             `;
             listContainer.appendChild(tr);
         });
     } catch (err) {
-        console.error('Lỗi khi lấy danh sách pending:', err);
-        listContainer.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#e74c3c; padding: 20px;">❌ Thất bại khi nạp dữ liệu: ${err.message}</td></tr>`;
+        console.error('Error fetching pending list:', err);
+        listContainer.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#e74c3c; padding: 20px;">❌ Failed to load data: ${err.message}</td></tr>`;
     }
 }
 
-// Admin Approve Project (Phê duyệt)
-async function approveProject(id) {
-    if (!confirm('Bạn có chắc chắn muốn PHÊ DUYỆT dự án này lên danh sách chính thức?')) return;
+async function fetchAllProjects() {
+    const listContainer = document.getElementById('adminAllList');
+    const noAllContainer = document.getElementById('adminNoAll');
+
+    if (!window.supabase) return;
+
+    listContainer.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">Loading list...</td></tr>';
+    noAllContainer.style.display = 'none';
+
+    try {
+        const { data, error } = await window.supabase
+            .from('projects')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            listContainer.innerHTML = '';
+            noAllContainer.style.display = 'block';
+            return;
+        }
+
+        listContainer.innerHTML = '';
+        data.forEach(p => {
+            const tr = document.createElement('tr');
+            const statusBadge = p.status === 'approved' 
+                ? '<span style="color:#2ecc71; font-weight:bold;">✅ Approved</span>'
+                : '<span style="color:#f39c12; font-weight:bold;">⏳ Pending</span>';
+            
+            tr.innerHTML = `
+                <td>
+                    <div style="display:flex; align-items:center; gap: 10px;">
+                        <img src="${p.icon}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;" onerror="this.src='images/placeholder.png'">
+                        <div>
+                            <strong style="color:var(--text);">${p.name}</strong><br>
+                            <a href="${p.url}" target="_blank" style="font-size:11px; color:var(--accent); text-decoration:none;">View website ↗</a>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                        <span style="font-size:13px; color:var(--text-secondary);">${p.submitter_username || 'Anonymous'}</span>
+                </td>
+                <td>
+                    ${statusBadge}
+                </td>
+                <td>
+                    <div class="admin-action-btns">
+                        <button class="admin-btn admin-btn-edit" onclick="editProject('${p.id}')">✏️ Edit</button>
+                        <button class="admin-btn admin-btn-delete" onclick="deleteProject('${p.id}')">🗑️ Delete</button>
+                    </div>
+                </td>
+            `;
+            listContainer.appendChild(tr);
+        });
+    } catch (err) {
+        console.error('Error fetching all projects:', err);
+        listContainer.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#e74c3c; padding: 20px;">❌ Failed to load data: ${err.message}</td></tr>`;
+    }
+}
+
+function filterAdminList() {
+    const searchInput = document.getElementById('adminSearchInput');
+    const statusFilter = document.getElementById('adminStatusFilter');
+    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const statusValue = statusFilter ? statusFilter.value : 'all';
+
+    const rows = document.querySelectorAll('#adminAllList tr');
     
+    rows.forEach(row => {
+        if (row.children.length < 4) return;
+        
+        const nameCell = row.children[0].textContent.toLowerCase();
+        const statusCell = row.children[2].textContent.toLowerCase();
+        
+        const matchesSearch = !searchTerm || nameCell.includes(searchTerm);
+        const matchesStatus = statusValue === 'all' || 
+                             (statusValue === 'approved' && statusCell.includes('approved')) ||
+                             (statusValue === 'pending' && statusCell.includes('pending'));
+        
+        row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
+    });
+}
+
+async function editProject(id) {
+    if (!window.supabase) return;
+
+    try {
+        const { data, error } = await window.supabase
+            .from('projects')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error || !data) {
+            alert('Unable to load project information');
+            return;
+        }
+
+        // Populate edit form
+        document.getElementById('editProjectId').textContent = data.id;
+        document.getElementById('editName').value = data.name || '';
+        document.getElementById('editUrl').value = data.url || '';
+        document.getElementById('editIcon').value = data.icon || '';
+        document.getElementById('editAuthor').value = data.author || '';
+        document.getElementById('editRepo').value = data.repo || '';
+        document.getElementById('editFoundation').value = data.foundation || '';
+        document.getElementById('editDescription').value = data.description || '';
+        document.getElementById('editVersion').value = data.version || '';
+        document.getElementById('editLicense').value = data.license || 'MIT';
+        document.getElementById('editPlatform').value = data.platform || 'Netlify';
+        document.getElementById('editStatus').value = data.os_status || 'Stable';
+        document.getElementById('editApprovalStatus').value = data.status || 'pending';
+        document.getElementById('editFeatured').value = data.featured ? 'true' : 'false';
+        document.getElementById('editTags').value = (data.tags || []).join(', ');
+
+        document.getElementById('editProjectModal').classList.add('show');
+    } catch (err) {
+        console.error('Error loading project:', err);
+        alert('Error loading project information');
+    }
+}
+
+function hideEditModal() {
+    document.getElementById('editProjectModal').classList.remove('show');
+}
+
+async function saveEditProject() {
+    const id = document.getElementById('editProjectId').textContent;
+    
+    if (!window.supabase || !id) return;
+
+    const name = document.getElementById('editName').value.trim();
+    const url = document.getElementById('editUrl').value.trim();
+    const icon = document.getElementById('editIcon').value.trim();
+    const author = document.getElementById('editAuthor').value.trim();
+    const repo = document.getElementById('editRepo').value.trim();
+
+    if (!name || !url || !icon || !author || !repo) {
+        alert('Please fill in all required fields');
+        return;
+    }
+
+    const foundation = document.getElementById('editFoundation').value.trim();
+    const description = document.getElementById('editDescription').value.trim();
+    const version = document.getElementById('editVersion').value.trim();
+    const license = document.getElementById('editLicense').value;
+    const platform = document.getElementById('editPlatform').value;
+    const osStatus = document.getElementById('editStatus').value;
+    const approvalStatus = document.getElementById('editApprovalStatus').value;
+    const featured = document.getElementById('editFeatured').value === 'true';
+    const tagsRaw = document.getElementById('editTags').value.trim();
+    const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+    const payload = {
+        name,
+        url,
+        icon,
+        author,
+        repo,
+        foundation: foundation || 'N/A',
+        description: description || '',
+        version: version || '1.0',
+        license,
+        platform,
+        os_status: osStatus,
+        status: approvalStatus,
+        featured,
+        tags
+    };
+
     try {
         const { error } = await window.supabase
             .from('projects')
-            .update({ status: 'approved' })
+            .update(payload)
             .eq('id', id);
 
         if (error) throw error;
-        
-        await fetchPendingProjects();
-        buildCards(); // Tự động cập nhật lại lưới hiển thị
+
+        alert('✅ Project updated successfully!');
+        hideEditModal();
+        fetchAllProjects();
+        buildCards();
     } catch (err) {
-        alert('Lỗi phê duyệt: ' + err.message);
+        console.error('Error updating:', err);
+        alert('❌ Error updating: ' + err.message);
     }
 }
 
-// Admin Reject Project (Từ chối)
-async function rejectProject(id) {
-    if (!confirm('Bạn có chắc chắn muốn TỪ CHỐI / XÓA hồ sơ đăng ký của dự án này?')) return;
-    
+async function deleteProject(id) {
+    if (!confirm('⚠️ Are you sure you want to PERMANENTLY DELETE this project? This action cannot be undone!')) return;
+
+    if (!window.supabase) return;
+
     try {
         const { error } = await window.supabase
             .from('projects')
@@ -941,47 +1259,82 @@ async function rejectProject(id) {
             .eq('id', id);
 
         if (error) throw error;
-        
-        await fetchPendingProjects();
+
+        alert('✅ Project deleted successfully!');
+        fetchAllProjects();
+        buildCards();
     } catch (err) {
-        alert('Lỗi từ chối dự án: ' + err.message);
+        console.error('Error deleting:', err);
+        alert('❌ Error deleting: ' + err.message);
     }
 }
 
-// Thiết lập đóng modal khi bấm bên ngoài
-document.getElementById('adminModal').addEventListener('click', function(e) {
+async function approveProject(id) {
+    if (!confirm('Are you sure you want to APPROVE this project to the official list?')) return;
+
+    try {
+        const { error } = await window.supabase
+            .from('projects')
+            .update({ status: 'approved' })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        await fetchPendingProjects();
+        buildCards();
+    } catch (err) {
+        alert('Approval error: ' + err.message);
+    }
+}
+
+async function rejectProject(id) {
+    if (!confirm('Are you sure you want to REJECT/DELETE this project submission?')) return;
+
+    try {
+        const { error } = await window.supabase
+            .from('projects')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
+        await fetchPendingProjects();
+    } catch (err) {
+        alert('Project rejection error: ' + err.message);
+    }
+}
+
+document.getElementById('adminModal').addEventListener('click', function (e) {
     if (e.target === this) hideAdminModal();
 });
 
 // === Init ===
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     buildCards();
-    
+
     const submitBtn = document.querySelector('.footer-submit-btn');
     const licenseBtn = document.querySelector('.footer-license-btn');
-    
+
     if (submitBtn) {
-        submitBtn.addEventListener('click', function(e) {
+        submitBtn.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
             showSubmitModal();
         });
     }
-    
+
     if (licenseBtn) {
-        licenseBtn.addEventListener('click', function(e) {
+        licenseBtn.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
             showLicenseModal();
         });
     }
 
-    // Khởi tạo các thành phần giao diện khi tải trang xong
     const user = getCurrentUser();
     updateAccountIcon(!!user);
     if (user) {
         console.log('👤 User session restored:', user.username);
-        // Kiểm tra quyền hiển thị Badge Admin trực tiếp
         setTimeout(() => {
             updateAuthUI();
         }, 500);

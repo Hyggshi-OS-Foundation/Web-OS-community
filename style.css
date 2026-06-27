@@ -732,6 +732,11 @@ body {
     max-width: 420px;
 }
 
+.modal-form {
+    max-width: 600px;
+    text-align: left;
+}
+
 @keyframes modalIn {
     from {
         transform: scale(0.8);
@@ -922,6 +927,73 @@ body {
     max-width: 240px;
 }
 
+/* Repository Toggle Button */
+.repo-toggle-btn {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    margin-top: 4px;
+}
+
+.repo-toggle-btn:hover {
+    background: var(--input-bg);
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+.repo-toggle-btn.active {
+    background: var(--input-bg);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.repo-toggle-icon {
+    font-size: 12px;
+    transition: transform 0.2s ease;
+    display: inline-block;
+}
+
+.repo-toggle-btn.active .repo-toggle-icon {
+    transform: rotate(180deg);
+}
+
+/* Alternative Repository Section */
+.repo-alt-section {
+    background: var(--input-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 8px;
+}
+
+#altRepoPlatformGroup,
+#altRepoGroup {
+    margin-top: 10px;
+}
+
+#altRepoPlatformGroup .form-group,
+#altRepoGroup .form-group {
+    margin-bottom: 0;
+}
+
+#altRepoPlatformGroup label,
+#altRepoGroup label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
 /* Admin Approval Panel Styles */
 .admin-table-container {
     margin-top: 15px;
@@ -1014,10 +1086,21 @@ body {
 
     .modal-content {
         padding: 20px;
+        border-radius: 16px;
+        max-width: 95vw;
+        margin: 10px;
     }
 
     .modal-lg {
-        max-width: 100%;
+        max-width: 95vw;
+    }
+
+    .modal-sm {
+        max-width: 95vw;
+    }
+
+    .modal-form {
+        max-width: 95vw;
     }
 
     .modal-preview {
@@ -1047,6 +1130,68 @@ body {
         padding: 0 20px;
         border-radius: 20px;
     }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .form-group {
+        margin-bottom: 0;
+    }
+
+    .form-title {
+        font-size: 20px;
+    }
+
+    .form-subtitle {
+        font-size: 13px;
+        margin-bottom: 20px;
+    }
+
+    .modal-buttons {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .modal-btn {
+        width: 100%;
+        padding: 12px 24px;
+    }
+
+    .admin-tabs {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .admin-tab {
+        width: 100%;
+        text-align: center;
+    }
+
+    .admin-table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .admin-table {
+        font-size: 12px;
+    }
+
+    .admin-table th,
+    .admin-table td {
+        padding: 8px 10px;
+    }
+
+    .admin-action-btns {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .admin-btn {
+        width: 100%;
+        text-align: center;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1071,4 +1216,123 @@ body {
         font-size: 12px;
         padding: 4px 12px;
     }
+
+    .modal-content {
+        padding: 16px;
+        border-radius: 12px;
+    }
+
+    .form-title {
+        font-size: 18px;
+    }
+
+    .form-subtitle {
+        font-size: 12px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        font-size: 13px;
+        padding: 8px 12px;
+    }
+
+    .form-group label {
+        font-size: 12px;
+    }
+
+    .admin-table {
+        font-size: 11px;
+    }
+
+    .admin-table th,
+    .admin-table td {
+        padding: 6px 8px;
+    }
+}
+
+/* ===== ADMIN TABS ===== */
+.admin-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    border-bottom: 2px solid var(--border-light);
+    padding-bottom: 10px;
+}
+
+.admin-tab {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 20px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.admin-tab:hover {
+    background: var(--tag-bg);
+    color: var(--text);
+}
+
+.admin-tab.active {
+    background: var(--accent);
+    color: #fff;
+}
+
+.admin-tab-content {
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== STATUS BADGE ===== */
+.status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+}
+
+.status-badge.approved {
+    background: rgba(39, 174, 96, 0.15);
+    color: #27ae60;
+    border: 1px solid rgba(39, 174, 96, 0.3);
+}
+
+.status-badge.pending {
+    background: rgba(241, 196, 15, 0.15);
+    color: #f1c40f;
+    border: 1px solid rgba(241, 196, 15, 0.3);
+}
+
+/* ===== ADMIN ACTION BUTTONS ===== */
+.admin-btn-edit {
+    background: #2980b9;
+    color: white;
+}
+
+.admin-btn-edit:hover {
+    background: #2471a3;
+}
+
+.admin-btn-delete {
+    background: #7f8c8d;
+    color: white;
+}
+
+.admin-btn-delete:hover {
+    background: #626567;
+}
+
+/* ===== EDIT MODAL STATUS ===== */
+#editStatus2 {
+    margin-top: 12px;
 }

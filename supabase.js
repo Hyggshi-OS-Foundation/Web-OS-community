@@ -72,3 +72,8 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 } else {
     document.addEventListener('DOMContentLoaded', waitAndInit);
 }
+
+// Check if user is admin
+function isAdmin(user) {
+    return user && user.is_admin === true;
+}
