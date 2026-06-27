@@ -20,6 +20,35 @@ if (localStorage.getItem('theme') === 'light') {
     document.getElementById('themeIcon').textContent = '🌙';
 }
 
+// === Normalize tags from ANY format ===
+// Handles: Array, comma-string, JSON array string, undefined/null
+function normalizeTags(raw) {
+    if (!raw) return [];
+
+    // Already a proper array
+    if (Array.isArray(raw)) {
+        return raw
+            .flatMap(t => String(t).split(','))
+            .map(t => t.trim().toLowerCase())
+            .filter(Boolean);
+    }
+
+    // JSON array string: '["webos","demo"]'
+    if (typeof raw === 'string' && raw.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(raw);
+            return normalizeTags(parsed);
+        } catch (_) { /* fall through */ }
+    }
+
+    // Plain comma-string: "webos,demo,lightweight"
+    if (typeof raw === 'string') {
+        return raw.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+    }
+
+    return [];
+}
+
 // === Build Cards from osList ===
 async function buildCards() {
     const grid = document.getElementById('cardsGrid');
@@ -45,7 +74,10 @@ async function buildCards() {
     }
 
     projects.forEach(os => {
-        const tagsStr = (os.tags || []).join(',');
+        // Normalize tags — works with Array, comma-string, JSON string, etc.
+        const rawTags = normalizeTags(os.tags);
+        const tagsStr = rawTags.join(',');
+
         const linksHtml = (os.links || []).map(l =>
             `<a href="#" onclick="event.preventDefault(); goto(\`${l.url}\`)">${l.label}</a>`
         ).join('');
@@ -65,6 +97,7 @@ async function buildCards() {
         card.setAttribute('data-os-status', os.os_status || 'Stable');
         card.setAttribute('data-featured', os.featured ? 'true' : 'false');
         card.setAttribute('data-owner', os.owner || os.submitter_username || os.username || os.author || 'Unknown');
+        // Tags already lowercased by normalizeTags()
         card.setAttribute('data-tags', tagsStr);
 
         const featuredBadge = os.featured ? '<div class="featured-badge">⭐ Featured</div>' : '';
@@ -123,41 +156,54 @@ function mapProjectToCard(p) {
         os_status: p.os_status || 'Stable',
         featured: p.featured || false,
         owner: p.submitter_username || p.owner || p.author || 'Unknown',
-        tags: p.tags || [],
+        tags: p.tags,  // pass raw — normalizeTags() handles all formats
         links: links.length ? links : [{ label: 'Main', url: p.url }]
     };
 }
 
 // === Tags ===
 function initTags() {
-    const allTags = new Set();
+    // Collect every unique tag across all cards dynamically
+    const tagCounts = {};
     document.querySelectorAll('.card').forEach(card => {
-        const tags = (card.getAttribute('data-tags') || '').split(',').map(t => t.trim()).filter(Boolean);
-        tags.forEach(t => allTags.add(t));
+        const tags = normalizeTags(card.getAttribute('data-tags'));
+        tags.forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
     });
 
+    // Build filter buttons sorted alphabetically
     const container = document.getElementById('tagFilters');
     if (container) {
-        container.innerHTML = '<button class="tag-filter active" data-tag="all" onclick="filterByTag(\'all\')">All</button>';
+        container.innerHTML =
+            '<button class="tag-filter active" data-tag="all" onclick="filterByTag(\'all\')">All</button>';
 
-        [...allTags].sort().forEach(tag => {
-            container.innerHTML += `<button class="tag-filter" data-tag="${tag}" onclick="filterByTag('${tag}')">${tag}</button>`;
-        });
+        Object.keys(tagCounts)
+            .sort()
+            .forEach(tag => {
+                const btn = document.createElement('button');
+                btn.className = 'tag-filter';
+                btn.setAttribute('data-tag', tag);
+                btn.onclick = () => filterByTag(tag);
+                btn.textContent = tag;
+                container.appendChild(btn);
+            });
     }
 
+    // Render inline tag chips on each card (clickable to filter)
     document.querySelectorAll('.card').forEach(card => {
-        const tags = (card.getAttribute('data-tags') || '').split(',').map(t => t.trim()).filter(Boolean);
+        const tags = normalizeTags(card.getAttribute('data-tags'));
         const tagContainer = card.querySelector('.card-tags');
         if (tagContainer) {
-            tagContainer.innerHTML = tags.map(t => `<span class="card-tag">${t}</span>`).join('');
+            tagContainer.innerHTML = tags
+                .map(t => `<span class="card-tag" onclick="filterByTag('${t}')">${t}</span>`)
+                .join('');
         }
     });
 }
 
 function filterByTag(tag) {
-    activeTag = tag;
+    activeTag = tag.toLowerCase();
     document.querySelectorAll('.tag-filter').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-tag') === tag);
+        btn.classList.toggle('active', btn.getAttribute('data-tag') === activeTag);
     });
     filterCards();
 }
@@ -165,22 +211,16 @@ function filterByTag(tag) {
 function filterCards() {
     const input = document.getElementById('searchInput');
     const filter = input ? input.value.toLowerCase().trim() : '';
-    const cards = document.querySelectorAll('.card');
 
-    cards.forEach(card => {
+    document.querySelectorAll('.card').forEach(card => {
         const name = card.getAttribute('data-name').toLowerCase();
-        const tags = (card.getAttribute('data-tags') || '').toLowerCase();
-        let visible = true;
+        // data-tags is already lowercased via normalizeTags()
+        const tags = normalizeTags(card.getAttribute('data-tags'));
 
-        if (filter && !name.includes(filter)) {
-            visible = false;
-        }
+        const matchesSearch = !filter || name.includes(filter);
+        const matchesTag    = activeTag === 'all' || tags.includes(activeTag);
 
-        if (activeTag !== 'all' && !tags.includes(activeTag)) {
-            visible = false;
-        }
-
-        card.classList.toggle('hidden', !visible);
+        card.classList.toggle('hidden', !(matchesSearch && matchesTag));
     });
 }
 
@@ -635,11 +675,11 @@ async function submitProject(e) {
     // Parse repository URL to extract author and repo name
     let author = 'N/A';
     let repo = 'N/A';
-    
+
     try {
         const urlObj = new URL(repoUrl);
         const pathParts = urlObj.pathname.split('/').filter(part => part.length > 0);
-        
+
         if (pathParts.length >= 2) {
             author = pathParts[0];
             repo = pathParts[1];
@@ -715,7 +755,7 @@ async function submitProject(e) {
 
     // Handle repository field
     const hasRepo = repoUrl && repoUrl.length > 0;
-    
+
     const payload = {
         name,
         url,
@@ -979,13 +1019,11 @@ function openAdminApprovalPanel() {
 }
 
 function switchAdminTab(tabName, btn) {
-    // Update active tab button
     document.querySelectorAll('.admin-tab').forEach(tab => {
         tab.classList.remove('active');
     });
     btn.classList.add('active');
 
-    // Show/hide tab content
     const pendingTab = document.getElementById('adminTabPending');
     const allTab = document.getElementById('adminTabAll');
 
@@ -1084,10 +1122,10 @@ async function fetchAllProjects() {
         listContainer.innerHTML = '';
         data.forEach(p => {
             const tr = document.createElement('tr');
-            const statusBadge = p.status === 'approved' 
+            const statusBadge = p.status === 'approved'
                 ? '<span style="color:#2ecc71; font-weight:bold;">✅ Approved</span>'
                 : '<span style="color:#f39c12; font-weight:bold;">⏳ Pending</span>';
-            
+
             tr.innerHTML = `
                 <td>
                     <div style="display:flex; align-items:center; gap: 10px;">
@@ -1099,7 +1137,7 @@ async function fetchAllProjects() {
                     </div>
                 </td>
                 <td>
-                        <span style="font-size:13px; color:var(--text-secondary);">${p.submitter_username || 'Anonymous'}</span>
+                    <span style="font-size:13px; color:var(--text-secondary);">${p.submitter_username || 'Anonymous'}</span>
                 </td>
                 <td>
                     ${statusBadge}
@@ -1126,18 +1164,18 @@ function filterAdminList() {
     const statusValue = statusFilter ? statusFilter.value : 'all';
 
     const rows = document.querySelectorAll('#adminAllList tr');
-    
+
     rows.forEach(row => {
         if (row.children.length < 4) return;
-        
+
         const nameCell = row.children[0].textContent.toLowerCase();
         const statusCell = row.children[2].textContent.toLowerCase();
-        
+
         const matchesSearch = !searchTerm || nameCell.includes(searchTerm);
-        const matchesStatus = statusValue === 'all' || 
+        const matchesStatus = statusValue === 'all' ||
                              (statusValue === 'approved' && statusCell.includes('approved')) ||
                              (statusValue === 'pending' && statusCell.includes('pending'));
-        
+
         row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
     });
 }
@@ -1157,7 +1195,6 @@ async function editProject(id) {
             return;
         }
 
-        // Populate edit form
         document.getElementById('editProjectId').textContent = data.id;
         document.getElementById('editName').value = data.name || '';
         document.getElementById('editUrl').value = data.url || '';
@@ -1172,7 +1209,7 @@ async function editProject(id) {
         document.getElementById('editStatus').value = data.os_status || 'Stable';
         document.getElementById('editApprovalStatus').value = data.status || 'pending';
         document.getElementById('editFeatured').value = data.featured ? 'true' : 'false';
-        document.getElementById('editTags').value = (data.tags || []).join(', ');
+        document.getElementById('editTags').value = normalizeTags(data.tags).join(', ');
 
         document.getElementById('editProjectModal').classList.add('show');
     } catch (err) {
@@ -1187,7 +1224,7 @@ function hideEditModal() {
 
 async function saveEditProject() {
     const id = document.getElementById('editProjectId').textContent;
-    
+
     if (!window.supabase || !id) return;
 
     const name = document.getElementById('editName').value.trim();
