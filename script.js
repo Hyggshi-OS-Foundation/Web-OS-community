@@ -21,11 +21,9 @@ if (localStorage.getItem('theme') === 'light') {
 }
 
 // === Normalize tags from ANY format ===
-// Handles: Array, comma-string, JSON array string, undefined/null
 function normalizeTags(raw) {
     if (!raw) return [];
 
-    // Already a proper array
     if (Array.isArray(raw)) {
         return raw
             .flatMap(t => String(t).split(','))
@@ -33,7 +31,6 @@ function normalizeTags(raw) {
             .filter(Boolean);
     }
 
-    // JSON array string: '["webos","demo"]'
     if (typeof raw === 'string' && raw.startsWith('[')) {
         try {
             const parsed = JSON.parse(raw);
@@ -41,7 +38,6 @@ function normalizeTags(raw) {
         } catch (_) { /* fall through */ }
     }
 
-    // Plain comma-string: "webos,demo,lightweight"
     if (typeof raw === 'string') {
         return raw.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
     }
@@ -74,7 +70,6 @@ async function buildCards() {
     }
 
     projects.forEach(os => {
-        // Normalize tags — works with Array, comma-string, JSON string, etc.
         const rawTags = normalizeTags(os.tags);
         const tagsStr = rawTags.join(',');
 
@@ -97,7 +92,6 @@ async function buildCards() {
         card.setAttribute('data-os-status', os.os_status || 'Stable');
         card.setAttribute('data-featured', os.featured ? 'true' : 'false');
         card.setAttribute('data-owner', os.owner || os.submitter_username || os.username || os.author || 'Unknown');
-        // Tags already lowercased by normalizeTags()
         card.setAttribute('data-tags', tagsStr);
 
         const featuredBadge = os.featured ? '<div class="featured-badge">⭐ Featured</div>' : '';
@@ -106,7 +100,7 @@ async function buildCards() {
             ${featuredBadge}
             <div class="card-border-top"></div>
             <div class="img">
-                <img src="${os.icon}" alt="${os.name}" onerror="this.src='images/placeholder.png'">
+                <img src="${os.icon}" alt="${os.name}" onerror="this.src=''">
             </div>
             <span>${os.name}</span>
             <div class="card-tags"></div>
@@ -131,7 +125,6 @@ async function buildCards() {
     initRatings();
     initDropdowns();
 
-    // Load global ratings từ Supabase cho tất cả cards
     document.querySelectorAll('.card').forEach(card => {
         loadAverageRating(card.getAttribute('data-name'));
     });
@@ -143,34 +136,32 @@ function mapProjectToCard(p) {
     );
 
     return {
-        name: p.name,
-        url: p.url,
-        icon: p.icon,
-        author: p.author,
-        repo: p.repo,
-        foundation: p.foundation || 'N/A',
+        name:        p.name,
+        url:         p.url,
+        icon:        p.icon,
+        author:      p.author,
+        repo:        p.repo,
+        foundation:  p.foundation || 'N/A',
         description: p.description || '',
-        version: p.version || '1.0',
-        license: p.license || 'MIT',
-        platform: p.platform || 'Netlify',
-        os_status: p.os_status || 'Stable',
-        featured: p.featured || false,
-        owner: p.submitter_username || p.owner || p.author || 'Unknown',
-        tags: p.tags,  // pass raw — normalizeTags() handles all formats
-        links: links.length ? links : [{ label: 'Main', url: p.url }]
+        version:     p.version || '1.0',
+        license:     p.license || 'MIT',
+        platform:    p.platform || 'Netlify',
+        os_status:   p.os_status || 'Stable',
+        featured:    p.featured || false,
+        owner:       p.submitter_username || p.owner || p.author || 'Unknown',
+        tags:        p.tags,
+        links:       links.length ? links : [{ label: 'Main', url: p.url }]
     };
 }
 
 // === Tags ===
 function initTags() {
-    // Collect every unique tag across all cards dynamically
     const tagCounts = {};
     document.querySelectorAll('.card').forEach(card => {
         const tags = normalizeTags(card.getAttribute('data-tags'));
         tags.forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
     });
 
-    // Build filter buttons sorted alphabetically
     const container = document.getElementById('tagFilters');
     if (container) {
         container.innerHTML =
@@ -188,7 +179,6 @@ function initTags() {
             });
     }
 
-    // Render inline tag chips on each card (clickable to filter)
     document.querySelectorAll('.card').forEach(card => {
         const tags = normalizeTags(card.getAttribute('data-tags'));
         const tagContainer = card.querySelector('.card-tags');
@@ -214,7 +204,6 @@ function filterCards() {
 
     document.querySelectorAll('.card').forEach(card => {
         const name = card.getAttribute('data-name').toLowerCase();
-        // data-tags is already lowercased via normalizeTags()
         const tags = normalizeTags(card.getAttribute('data-tags'));
 
         const matchesSearch = !filter || name.includes(filter);
@@ -224,7 +213,26 @@ function filterCards() {
     });
 }
 
-// === Rating System (Global via Supabase) ===
+// === Rating System ===
+
+// Returns the user's existing rating for a project from Supabase, or null if never rated
+async function getUserExistingRating(cardName, userId) {
+    if (!window.supabase) return null;
+    try {
+        const { data, error } = await window.supabase
+            .from('ratings')
+            .select('rating')
+            .eq('project_name', cardName)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (error || !data) return null;
+        return data.rating;
+    } catch (err) {
+        return null;
+    }
+}
+
 function renderStars(container, rating, cardName) {
     container.innerHTML = '';
     for (let i = 1; i <= 5; i++) {
@@ -258,12 +266,14 @@ async function setRating(cardName, value) {
         return;
     }
 
-    // Cập nhật local ngay để UX mượt
+    // Check BEFORE upsert whether the user has already rated this project
+    const alreadyRated = await getUserExistingRating(cardName, user.id);
+
+    // Update local cache immediately for smooth UX
     ratings[cardName] = value;
     localStorage.setItem('osRatings', JSON.stringify(ratings));
     updateAllRatings();
 
-    // Sync lên Supabase
     if (window.supabase) {
         try {
             const { error } = await window.supabase
@@ -271,8 +281,8 @@ async function setRating(cardName, value) {
                 .upsert(
                     {
                         project_name: cardName,
-                        user_id: user.id,
-                        rating: value
+                        user_id:      user.id,
+                        rating:       value
                     },
                     { onConflict: 'project_name,user_id' }
                 );
@@ -280,12 +290,17 @@ async function setRating(cardName, value) {
             if (error) {
                 console.error('Rating sync error:', error);
             } else {
-                // Reload average sau khi upsert thành công
                 await loadAverageRating(cardName);
+
+                // Only award coins on the FIRST ever rating of this project
+                if (!alreadyRated && typeof earnCoins === 'function') {
+                    earnCoins(5, 'rate_project', { project_name: cardName, rating: value });
+                }
+
+                if (typeof loadUserCoins === 'function') await loadUserCoins();
             }
         } catch (err) {
             console.warn('Rating sync failed (offline?):', err);
-            // Vẫn hiển thị local rating nếu offline
             updateRatingCounts();
         }
     } else {
@@ -293,7 +308,6 @@ async function setRating(cardName, value) {
     }
 }
 
-// Load rating trung bình từ Supabase cho 1 project
 async function loadAverageRating(cardName) {
     if (!window.supabase) {
         updateRatingCounts();
@@ -307,7 +321,6 @@ async function loadAverageRating(cardName) {
             .eq('project_name', cardName);
 
         if (error || !data || data.length === 0) {
-            // Không có global rating → fallback local
             updateRatingCountSingle(cardName);
             return;
         }
@@ -315,13 +328,11 @@ async function loadAverageRating(cardName) {
         const avg = data.reduce((s, r) => s + r.rating, 0) / data.length;
         const count = data.length;
 
-        // Lấy rating của user hiện tại (nếu có)
         const user = getCurrentUser();
         const myRating = user
             ? (data.find(r => r.user_id === user.id)?.rating || ratings[cardName] || 0)
             : (ratings[cardName] || 0);
 
-        // Update stars theo rating của user hiện tại
         document.querySelectorAll(`.card[data-name="${CSS.escape(cardName)}"]`).forEach(card => {
             const starContainer = card.querySelector('.stars');
             if (starContainer) {
@@ -341,7 +352,6 @@ async function loadAverageRating(cardName) {
     }
 }
 
-// Fallback: hiển thị local rating cho 1 card
 function updateRatingCountSingle(cardName) {
     const r = ratings[cardName] || 0;
     document.querySelectorAll(`.card[data-name="${CSS.escape(cardName)}"]`).forEach(card => {
@@ -356,7 +366,9 @@ function updateAllRatings() {
         const rating = ratings[name] || 0;
         const starContainer = card.querySelector('.stars');
         if (starContainer) {
-            starContainer.querySelectorAll('.star').forEach((s, idx) => s.classList.toggle('active', idx < rating));
+            starContainer.querySelectorAll('.star').forEach((s, idx) =>
+                s.classList.toggle('active', idx < rating)
+            );
         }
     });
 }
@@ -428,7 +440,8 @@ function showLaunchModal(btn) {
         document.getElementById('previewLoading').style.display = 'none';
         document.getElementById('modalIframe').style.display = 'none';
         document.getElementById('previewUnavailable').style.display = 'block';
-        document.getElementById('previewUnavailable').querySelector('p:last-child').textContent = 'Preview not available in local mode. Click "Launch" to open in browser.';
+        document.getElementById('previewUnavailable').querySelector('p:last-child').textContent =
+            'Preview not available in local mode. Click "Launch" to open in browser.';
         document.querySelector('.preview-label').textContent = '⚠️ PREVIEW UNAVAILABLE (LOCAL MODE)';
         document.querySelector('.preview-label').style.color = '#f1c40f';
     } else {
@@ -521,7 +534,8 @@ function showInfoModal(btn) {
 
 function formatDate(dateStr) {
     const date = new Date(dateStr);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return months[date.getMonth()] + ' ' + date.getDate() + ', ' + date.getFullYear();
 }
 
@@ -532,7 +546,9 @@ function fetchRepoDate(author, repo) {
     }
     fetch('https://api.github.com/repos/' + author + '/' + repo)
         .then(r => { if (!r.ok) throw Error(); return r.json(); })
-        .then(d => { if (d.created_at) document.getElementById('infoDate').textContent = formatDate(d.created_at); })
+        .then(d => {
+            if (d.created_at) document.getElementById('infoDate').textContent = formatDate(d.created_at);
+        })
         .catch(() => { document.getElementById('infoDate').textContent = 'N/A'; });
 }
 
@@ -561,8 +577,7 @@ async function showLicenseModal() {
                 const html = await response.text();
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
-                const bodyContent = doc.body.innerHTML;
-                content.innerHTML = bodyContent;
+                content.innerHTML = doc.body.innerHTML;
             } else {
                 content.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 40px;">Failed to load license. <a href="license/hosl-1.3.html" target="_blank" style="color: var(--accent);">Open in new tab</a></p>';
             }
@@ -583,36 +598,34 @@ document.getElementById('licenseModal').addEventListener('click', function (e) {
     if (e.target === this) hideLicenseModal();
 });
 
-// Random math question state
+// === Math Verification ===
 let verifyAnswer = 0;
 
 function generateVerifyQuestion() {
     const ops = ['+', '-', '*'];
     const op = ops[Math.floor(Math.random() * ops.length)];
-    let a, b, question;
+    let a, b;
 
     switch (op) {
         case '+':
             a = Math.floor(Math.random() * 50) + 5;
             b = Math.floor(Math.random() * 50) + 5;
-            question = `What is ${a} + ${b}?`;
+            document.getElementById('verifyQuestion').textContent = `What is ${a} + ${b}?`;
             verifyAnswer = a + b;
             break;
         case '-':
             a = Math.floor(Math.random() * 80) + 10;
             b = Math.floor(Math.random() * a) + 1;
-            question = `What is ${a} - ${b}?`;
+            document.getElementById('verifyQuestion').textContent = `What is ${a} - ${b}?`;
             verifyAnswer = a - b;
             break;
         case '*':
             a = Math.floor(Math.random() * 12) + 2;
             b = Math.floor(Math.random() * 10) + 2;
-            question = `What is ${a} × ${b}?`;
+            document.getElementById('verifyQuestion').textContent = `What is ${a} × ${b}?`;
             verifyAnswer = a * b;
             break;
     }
-
-    document.getElementById('verifyQuestion').textContent = question;
 }
 
 // === Submit Modal ===
@@ -646,10 +659,7 @@ async function submitProject(e) {
     const user = getCurrentUser();
     if (!user) {
         showStatus(status, 'error', '❌ Please create an account or sign in before submitting a project.');
-        setTimeout(() => {
-            hideSubmitModal();
-            showAccountModal();
-        }, 900);
+        setTimeout(() => { hideSubmitModal(); showAccountModal(); }, 900);
         return;
     }
 
@@ -666,45 +676,36 @@ async function submitProject(e) {
         return;
     }
 
-    const name = document.getElementById('formName').value.trim();
-    const url = document.getElementById('formUrl').value.trim();
-    const icon = document.getElementById('formIcon').value.trim();
+    const name         = document.getElementById('formName').value.trim();
+    const url          = document.getElementById('formUrl').value.trim();
+    const icon         = document.getElementById('formIcon').value.trim();
     const repoProvider = document.getElementById('formRepoProvider').value;
-    const repoUrl = document.getElementById('formRepoUrl').value.trim();
+    const repoUrl      = document.getElementById('formRepoUrl').value.trim();
 
-    // Parse repository URL to extract author and repo name
     let author = 'N/A';
-    let repo = 'N/A';
+    let repo   = 'N/A';
 
     try {
-        const urlObj = new URL(repoUrl);
-        const pathParts = urlObj.pathname.split('/').filter(part => part.length > 0);
-
-        if (pathParts.length >= 2) {
-            author = pathParts[0];
-            repo = pathParts[1];
-        }
+        const urlObj   = new URL(repoUrl);
+        const parts    = urlObj.pathname.split('/').filter(p => p.length > 0);
+        if (parts.length >= 2) { author = parts[0]; repo = parts[1]; }
     } catch (e) {
         showStatus(status, 'error', '❌ Invalid repository URL format.');
         return;
     }
 
-    // Verify repository based on provider
     if (repoProvider === 'github') {
         showStatus(status, 'processing', '⏳ Verifying GitHub repository...');
-
         try {
-            const ghResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(author)}/${encodeURIComponent(repo)}`, {
-                headers: { 'Accept': 'application/vnd.github.v3+json' }
-            });
-
+            const ghResponse = await fetch(
+                `https://api.github.com/repos/${encodeURIComponent(author)}/${encodeURIComponent(repo)}`,
+                { headers: { 'Accept': 'application/vnd.github.v3+json' } }
+            );
             if (!ghResponse.ok) {
                 if (ghResponse.status === 404) {
                     showStatus(status, 'error', '❌ GitHub repository not found. Please verify the URL is correct and public.');
                     return;
-                } else if (ghResponse.status === 403) {
-                    console.warn('GitHub API rate limited, skipping verification');
-                } else {
+                } else if (ghResponse.status !== 403) {
                     showStatus(status, 'error', '❌ GitHub verification failed (HTTP ' + ghResponse.status + '). Please try again.');
                     return;
                 }
@@ -712,37 +713,34 @@ async function submitProject(e) {
         } catch (err) {
             console.warn('GitHub API error (network issue), skipping verification:', err);
         }
-    } else {
-        console.log('Skipping verification for non-GitHub provider:', repoProvider);
     }
 
-    const homepage = document.getElementById('formHomepage').value.trim();
-    const foundation = document.getElementById('formFoundation').value.trim();
-    const description = document.getElementById('formDescription').value.trim();
-    const category = document.getElementById('formCategory').value;
-    const targetAudience = document.getElementById('formTargetAudience').value;
-    const version = document.getElementById('formVersion').value.trim();
-    const license = document.getElementById('formLicense').value;
-    const platform = document.getElementById('formPlatform').value;
-    const osStatus = document.getElementById('formStatusSelect').value;
-    const tagsRaw = document.getElementById('formTags').value.trim();
-    const linksRaw = document.getElementById('formLinks').value.trim();
+    const homepage      = document.getElementById('formHomepage').value.trim();
+    const foundation    = document.getElementById('formFoundation').value.trim();
+    const description   = document.getElementById('formDescription').value.trim();
+    const category      = document.getElementById('formCategory').value;
+    const targetAudience= document.getElementById('formTargetAudience').value;
+    const version       = document.getElementById('formVersion').value.trim();
+    const license       = document.getElementById('formLicense').value;
+    const platform      = document.getElementById('formPlatform').value;
+    const osStatus      = document.getElementById('formStatusSelect').value;
+    const tagsRaw       = document.getElementById('formTags').value.trim();
+    const linksRaw      = document.getElementById('formLinks').value.trim();
 
     if (!name || !url || !icon || !repoUrl) {
         showStatus(status, 'error', 'Please fill in all required fields.');
         return;
     }
 
-    // Validate URL format based on provider
     if (repoProvider === 'github') {
-        const githubRegex = /^https?:\/\/github\.com\/[^\/]+\/[^\/]+/;
+        const githubRegex = /^https?:\/\/github\.com\/[^/]+\/[^/]+/;
         if (!githubRegex.test(repoUrl)) {
             showStatus(status, 'error', '❌ Invalid GitHub URL format. Expected: https://github.com/username/repo');
             return;
         }
     }
 
-    const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+    const tags  = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
     const links = [];
     if (linksRaw) {
         linksRaw.split('\n').forEach(line => {
@@ -753,52 +751,37 @@ async function submitProject(e) {
         });
     }
 
-    // Handle repository field
-    const hasRepo = repoUrl && repoUrl.length > 0;
-
     const payload = {
         name,
         url,
         icon,
-        author: author,
-        repo: repo,
-        has_repo: hasRepo,
-        repo_platform: repoProvider,
-        homepage: homepage || 'N/A',
-        foundation: foundation || 'N/A',
-        description: description || '',
-        category: category || 'Other',
+        author,
+        repo,
+        has_repo:        repoUrl.length > 0,
+        repo_platform:   repoProvider,
+        homepage:        homepage || 'N/A',
+        foundation:      foundation || 'N/A',
+        description:     description || '',
+        category:        category || 'Other',
         target_audience: targetAudience || 'General',
-        version: version || '1.0',
+        version:         version || '1.0',
         license,
         platform,
-        os_status: osStatus,
-        featured: false,
+        os_status:       osStatus,
+        featured:        false,
         tags,
-        links: links.length ? links : [{ label: 'Main', url }],
-        status: 'pending'
+        links:           links.length ? links : [{ label: 'Main', url }],
+        status:          'pending'
     };
 
     try {
-        if (!window.supabase) {
-            throw new Error('Supabase is not configured. Please contact admin.');
-        }
+        if (!window.supabase) throw new Error('Supabase is not configured. Please contact admin.');
 
-        payload.submitter_id = user.id;
+        payload.submitter_id       = user.id;
         payload.submitter_username = user.username;
 
-        console.log('Submitting payload:', payload);
-
-        const { data, error } = await window.supabase
-            .from('projects')
-            .insert([payload]);
-
-        if (error) {
-            console.error('Supabase insert error:', error);
-            throw error;
-        }
-
-        console.log('Insert success:', data);
+        const { data, error } = await window.supabase.from('projects').insert([payload]);
+        if (error) throw error;
 
         showStatus(status, 'success', '✅ Project submitted successfully! It will appear after review.');
         document.getElementById('submitForm').reset();
@@ -815,7 +798,7 @@ function showStatus(el, type, msg) {
     el.style.display = 'block';
 }
 
-// === Account Modal (Custom Auth via RPC) ===
+// === Account Modal ===
 function showAccountModal() {
     updateAuthUI();
     document.getElementById('accountModal').classList.add('show');
@@ -834,9 +817,7 @@ document.getElementById('accountModal').addEventListener('click', function (e) {
 function getInitials(username) {
     if (!username) return '?';
     const parts = username.split(/[._-]/);
-    if (parts.length >= 2) {
-        return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
     return username.substring(0, 2).toUpperCase();
 }
 
@@ -889,31 +870,15 @@ async function signIn(e) {
     const username = document.getElementById('signInUsername').value.trim();
     const password = document.getElementById('signInPassword').value;
 
-    if (!window.supabase) {
-        showStatus(status, 'error', '❌ Supabase not configured.');
-        return;
-    }
+    if (!window.supabase) { showStatus(status, 'error', '❌ Supabase not configured.'); return; }
 
     try {
-        const result = await callRPC('signin', {
-            p_username: username,
-            p_password: password
-        });
+        const result = await callRPC('signin', { p_username: username, p_password: password });
+        if (!result.success) { showStatus(status, 'error', '❌ ' + result.error); return; }
 
-        if (!result.success) {
-            showStatus(status, 'error', '❌ ' + result.error);
-            return;
-        }
-
-        console.log('Sign in success:', result.user);
         saveUserSession(result.user);
-
         showStatus(status, 'success', '✅ Welcome back, ' + result.user.username + '!');
-        setTimeout(() => {
-            hideAccountModal();
-            updateAccountIcon(true);
-            window.location.reload();
-        }, 800);
+        setTimeout(() => { hideAccountModal(); updateAccountIcon(true); window.location.reload(); }, 800);
     } catch (err) {
         console.error('Sign in error:', err);
         showStatus(status, 'error', '❌ ' + formatSupabaseError(err, 'Sign in failed.'));
@@ -934,41 +899,17 @@ async function signUp(e) {
     const username = document.getElementById('signUpUsername').value.trim();
     const password = document.getElementById('signUpPassword').value;
 
-    if (!window.supabase) {
-        showStatus(status, 'error', '❌ Supabase not configured.');
-        return;
-    }
-
-    if (password.length < 6) {
-        showStatus(status, 'error', '❌ Password must be at least 6 characters.');
-        return;
-    }
-
-    if (username.length < 3) {
-        showStatus(status, 'error', '❌ Username must be at least 3 characters.');
-        return;
-    }
+    if (!window.supabase) { showStatus(status, 'error', '❌ Supabase not configured.'); return; }
+    if (password.length < 6) { showStatus(status, 'error', '❌ Password must be at least 6 characters.'); return; }
+    if (username.length < 3) { showStatus(status, 'error', '❌ Username must be at least 3 characters.'); return; }
 
     try {
-        const result = await callRPC('signup', {
-            p_username: username,
-            p_password: password
-        });
+        const result = await callRPC('signup', { p_username: username, p_password: password });
+        if (!result.success) { showStatus(status, 'error', '❌ ' + result.error); return; }
 
-        if (!result.success) {
-            showStatus(status, 'error', '❌ ' + result.error);
-            return;
-        }
-
-        console.log('Sign up success:', result.user);
         saveUserSession(result.user);
-
         showStatus(status, 'success', '✅ Welcome, ' + result.user.username + '!');
-        setTimeout(() => {
-            hideAccountModal();
-            updateAccountIcon(true);
-            window.location.reload();
-        }, 800);
+        setTimeout(() => { hideAccountModal(); updateAccountIcon(true); window.location.reload(); }, 800);
     } catch (err) {
         console.error('Sign up error:', err);
         showStatus(status, 'error', '❌ ' + formatSupabaseError(err, 'Account creation failed.'));
@@ -976,7 +917,6 @@ async function signUp(e) {
 }
 
 async function signOut() {
-    console.log('Signing out user:', getCurrentUser()?.username);
     clearUserSession();
     hideAccountModal();
     updateAccountIcon(false);
@@ -986,13 +926,8 @@ async function signOut() {
 function togglePassword(inputId, toggleEl) {
     const input = document.getElementById(inputId);
     if (!input) return;
-    if (input.type === 'password') {
-        input.type = 'text';
-        toggleEl.textContent = '👁️‍🗨️';
-    } else {
-        input.type = 'password';
-        toggleEl.textContent = '👁️';
-    }
+    if (input.type === 'password') { input.type = 'text'; toggleEl.textContent = '👁️‍🗨️'; }
+    else { input.type = 'password'; toggleEl.textContent = '👁️'; }
 }
 
 function updateAccountIcon(isLoggedIn) {
@@ -1000,11 +935,127 @@ function updateAccountIcon(isLoggedIn) {
     if (icon) icon.textContent = isLoggedIn ? '✅' : '👤';
 }
 
-// === Admin Panel Functions ===
+// === Edit Profile ===
+function showEditProfileModal() {
+    const user = getCurrentUser();
+    if (!user) return;
+
+    document.getElementById('editProfileBio').value = user.bio || '';
+    document.getElementById('editProfileColor').value = user.color || '#e94560';
+    document.getElementById('editProfileColorHex').textContent = user.color || '#e94560';
+    document.getElementById('editProfilePassword').value = '';
+    document.getElementById('editProfilePasswordConfirm').value = '';
+
+    updateProfilePreview();
+    document.getElementById('editProfileModal').classList.add('show');
+}
+
+function hideEditProfileModal() {
+    document.getElementById('editProfileModal').classList.remove('show');
+    document.getElementById('editProfileStatus').style.display = 'none';
+}
+
+document.getElementById('editProfileModal').addEventListener('click', function (e) {
+    if (e.target === this) hideEditProfileModal();
+});
+
+document.getElementById('editProfileColor').addEventListener('input', function () {
+    document.getElementById('editProfileColorHex').textContent = this.value;
+    updateProfilePreview();
+});
+
+document.getElementById('editProfileBio').addEventListener('input', function () {
+    updateProfilePreview();
+});
+
+function setProfileColor(color) {
+    document.getElementById('editProfileColor').value = color;
+    document.getElementById('editProfileColorHex').textContent = color;
+    updateProfilePreview();
+}
+
+function updateProfilePreview() {
+    const user = getCurrentUser();
+    if (!user) return;
+
+    const color = document.getElementById('editProfileColor').value || user.color || '#e94560';
+
+    const previewBanner = document.getElementById('previewBanner');
+    if (previewBanner) previewBanner.style.background = `linear-gradient(135deg, ${color} 0%, #333 100%)`;
+
+    const previewAvatar = document.getElementById('previewAvatar');
+    if (previewAvatar) { previewAvatar.textContent = getInitials(user.username); previewAvatar.style.background = color; }
+
+    const previewName = document.getElementById('previewName');
+    if (previewName) previewName.textContent = user.username;
+}
+
+async function saveProfile() {
+    const status = document.getElementById('editProfileStatus');
+    status.style.display = 'none';
+
+    const user = getCurrentUser();
+    if (!user) { showStatus(status, 'error', '❌ You must be signed in to edit your profile.'); return; }
+
+    const bio             = document.getElementById('editProfileBio').value.trim();
+    const color           = document.getElementById('editProfileColor').value;
+    const newPassword     = document.getElementById('editProfilePassword').value;
+    const confirmPassword = document.getElementById('editProfilePasswordConfirm').value;
+
+    if (bio.length > 160) { showStatus(status, 'error', '❌ Bio must be 160 characters or less.'); return; }
+
+    if (newPassword || confirmPassword) {
+        if (newPassword.length < 6) { showStatus(status, 'error', '❌ New password must be at least 6 characters.'); return; }
+        if (newPassword !== confirmPassword) { showStatus(status, 'error', '❌ Passwords do not match.'); return; }
+    }
+
+    showStatus(status, 'processing', '⏳ Saving changes...');
+
+    try {
+        const profileResult = await callRPC('update_profile', {
+            p_user_id: user.id,
+            p_bio:     bio || null,
+            p_color:   color
+        });
+
+        if (!profileResult.success) {
+            showStatus(status, 'error', '❌ ' + (profileResult.error || 'Failed to update profile.'));
+            return;
+        }
+
+        if (newPassword) {
+            const currentPassword = prompt('Please enter your current password to change it:');
+            if (!currentPassword) {
+                showStatus(status, 'error', '❌ Current password is required to set a new password.');
+                return;
+            }
+
+            const passwordResult = await callRPC('change_password', {
+                p_user_id:         user.id,
+                p_current_password: currentPassword,
+                p_new_password:    newPassword
+            });
+
+            if (!passwordResult.success) {
+                showStatus(status, 'error', '❌ ' + (passwordResult.error || 'Failed to change password.'));
+                return;
+            }
+        }
+
+        saveUserSession(profileResult.user);
+        updateAuthUI();
+        showStatus(status, 'success', '✅ Profile updated successfully!');
+        setTimeout(() => { hideEditProfileModal(); window.location.reload(); }, 1000);
+    } catch (err) {
+        console.error('Save profile error:', err);
+        showStatus(status, 'error', '❌ ' + formatSupabaseError(err, 'Failed to save profile.'));
+    }
+}
+
+// === Admin Panel ===
 async function showAdminModal() {
     const user = getCurrentUser();
     if (!isAdmin(user)) return;
-
     document.getElementById('adminModal').classList.add('show');
     await fetchPendingProjects();
 }
@@ -1019,29 +1070,26 @@ function openAdminApprovalPanel() {
 }
 
 function switchAdminTab(tabName, btn) {
-    document.querySelectorAll('.admin-tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
+    document.querySelectorAll('.admin-tab').forEach(tab => tab.classList.remove('active'));
     btn.classList.add('active');
 
     const pendingTab = document.getElementById('adminTabPending');
-    const allTab = document.getElementById('adminTabAll');
+    const allTab     = document.getElementById('adminTabAll');
 
     if (tabName === 'pending') {
         pendingTab.style.display = 'block';
-        allTab.style.display = 'none';
+        allTab.style.display     = 'none';
         fetchPendingProjects();
     } else if (tabName === 'all') {
         pendingTab.style.display = 'none';
-        allTab.style.display = 'block';
+        allTab.style.display     = 'block';
         fetchAllProjects();
     }
 }
 
 async function fetchPendingProjects() {
-    const listContainer = document.getElementById('adminPendingList');
+    const listContainer  = document.getElementById('adminPendingList');
     const noPendingContainer = document.getElementById('adminNoPending');
-
     if (!window.supabase) return;
 
     listContainer.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">Loading pending list...</td></tr>';
@@ -1049,13 +1097,9 @@ async function fetchPendingProjects() {
 
     try {
         const { data, error } = await window.supabase
-            .from('projects')
-            .select('*')
-            .eq('status', 'pending')
-            .order('created_at', { ascending: true });
+            .from('projects').select('*').eq('status', 'pending').order('created_at', { ascending: true });
 
         if (error) throw error;
-
         if (!data || data.length === 0) {
             listContainer.innerHTML = '';
             noPendingContainer.style.display = 'block';
@@ -1071,23 +1115,18 @@ async function fetchPendingProjects() {
                         <img src="${p.icon}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;" onerror="this.src='images/placeholder.png'">
                         <div>
                             <strong style="color:var(--text);">${p.name}</strong><br>
-                            <a href="${p.url}" target="_blank" style="font-size:11px; color:var(--accent); text-decoration:none;">Xem trang web ↗</a>
+                            <a href="${p.url}" target="_blank" style="font-size:11px; color:var(--accent); text-decoration:none;">View website ↗</a>
                         </div>
                     </div>
                 </td>
-                <td>
-                    <span style="font-size:13px; color:var(--text-secondary);">${p.submitter_username || 'Anonymous'}</span>
-                </td>
-                <td>
-                    <span style="font-size:12px; font-family:monospace; color:var(--text-muted);">${p.author}/${p.repo}</span>
-                </td>
+                <td><span style="font-size:13px; color:var(--text-secondary);">${p.submitter_username || 'Anonymous'}</span></td>
+                <td><span style="font-size:12px; font-family:monospace; color:var(--text-muted);">${p.author}/${p.repo}</span></td>
                 <td>
                     <div class="admin-action-btns">
                         <button class="admin-btn admin-btn-approve" onclick="approveProject('${p.id}')">Approve</button>
                         <button class="admin-btn admin-btn-reject" onclick="rejectProject('${p.id}')">Reject</button>
                     </div>
-                </td>
-            `;
+                </td>`;
             listContainer.appendChild(tr);
         });
     } catch (err) {
@@ -1099,7 +1138,6 @@ async function fetchPendingProjects() {
 async function fetchAllProjects() {
     const listContainer = document.getElementById('adminAllList');
     const noAllContainer = document.getElementById('adminNoAll');
-
     if (!window.supabase) return;
 
     listContainer.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 20px;">Loading list...</td></tr>';
@@ -1107,12 +1145,9 @@ async function fetchAllProjects() {
 
     try {
         const { data, error } = await window.supabase
-            .from('projects')
-            .select('*')
-            .order('created_at', { ascending: false });
+            .from('projects').select('*').order('created_at', { ascending: false });
 
         if (error) throw error;
-
         if (!data || data.length === 0) {
             listContainer.innerHTML = '';
             noAllContainer.style.display = 'block';
@@ -1121,11 +1156,11 @@ async function fetchAllProjects() {
 
         listContainer.innerHTML = '';
         data.forEach(p => {
-            const tr = document.createElement('tr');
             const statusBadge = p.status === 'approved'
                 ? '<span style="color:#2ecc71; font-weight:bold;">✅ Approved</span>'
                 : '<span style="color:#f39c12; font-weight:bold;">⏳ Pending</span>';
 
+            const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>
                     <div style="display:flex; align-items:center; gap: 10px;">
@@ -1136,19 +1171,14 @@ async function fetchAllProjects() {
                         </div>
                     </div>
                 </td>
-                <td>
-                    <span style="font-size:13px; color:var(--text-secondary);">${p.submitter_username || 'Anonymous'}</span>
-                </td>
-                <td>
-                    ${statusBadge}
-                </td>
+                <td><span style="font-size:13px; color:var(--text-secondary);">${p.submitter_username || 'Anonymous'}</span></td>
+                <td>${statusBadge}</td>
                 <td>
                     <div class="admin-action-btns">
                         <button class="admin-btn admin-btn-edit" onclick="editProject('${p.id}')">✏️ Edit</button>
                         <button class="admin-btn admin-btn-delete" onclick="deleteProject('${p.id}')">🗑️ Delete</button>
                     </div>
-                </td>
-            `;
+                </td>`;
             listContainer.appendChild(tr);
         });
     } catch (err) {
@@ -1158,58 +1188,46 @@ async function fetchAllProjects() {
 }
 
 function filterAdminList() {
-    const searchInput = document.getElementById('adminSearchInput');
+    const searchInput  = document.getElementById('adminSearchInput');
     const statusFilter = document.getElementById('adminStatusFilter');
-    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
-    const statusValue = statusFilter ? statusFilter.value : 'all';
+    const searchTerm   = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const statusValue  = statusFilter ? statusFilter.value : 'all';
 
-    const rows = document.querySelectorAll('#adminAllList tr');
-
-    rows.forEach(row => {
+    document.querySelectorAll('#adminAllList tr').forEach(row => {
         if (row.children.length < 4) return;
-
-        const nameCell = row.children[0].textContent.toLowerCase();
+        const nameCell   = row.children[0].textContent.toLowerCase();
         const statusCell = row.children[2].textContent.toLowerCase();
-
         const matchesSearch = !searchTerm || nameCell.includes(searchTerm);
-        const matchesStatus = statusValue === 'all' ||
-                             (statusValue === 'approved' && statusCell.includes('approved')) ||
-                             (statusValue === 'pending' && statusCell.includes('pending'));
-
+        const matchesStatus = statusValue === 'all'
+            || (statusValue === 'approved' && statusCell.includes('approved'))
+            || (statusValue === 'pending'  && statusCell.includes('pending'));
         row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
     });
 }
 
 async function editProject(id) {
     if (!window.supabase) return;
-
     try {
         const { data, error } = await window.supabase
-            .from('projects')
-            .select('*')
-            .eq('id', id)
-            .single();
+            .from('projects').select('*').eq('id', id).single();
 
-        if (error || !data) {
-            alert('Unable to load project information');
-            return;
-        }
+        if (error || !data) { alert('Unable to load project information'); return; }
 
-        document.getElementById('editProjectId').textContent = data.id;
-        document.getElementById('editName').value = data.name || '';
-        document.getElementById('editUrl').value = data.url || '';
-        document.getElementById('editIcon').value = data.icon || '';
-        document.getElementById('editAuthor').value = data.author || '';
-        document.getElementById('editRepo').value = data.repo || '';
-        document.getElementById('editFoundation').value = data.foundation || '';
-        document.getElementById('editDescription').value = data.description || '';
-        document.getElementById('editVersion').value = data.version || '';
-        document.getElementById('editLicense').value = data.license || 'MIT';
-        document.getElementById('editPlatform').value = data.platform || 'Netlify';
-        document.getElementById('editStatus').value = data.os_status || 'Stable';
-        document.getElementById('editApprovalStatus').value = data.status || 'pending';
-        document.getElementById('editFeatured').value = data.featured ? 'true' : 'false';
-        document.getElementById('editTags').value = normalizeTags(data.tags).join(', ');
+        document.getElementById('editProjectId').textContent  = data.id;
+        document.getElementById('editName').value             = data.name || '';
+        document.getElementById('editUrl').value              = data.url || '';
+        document.getElementById('editIcon').value             = data.icon || '';
+        document.getElementById('editAuthor').value           = data.author || '';
+        document.getElementById('editRepo').value             = data.repo || '';
+        document.getElementById('editFoundation').value       = data.foundation || '';
+        document.getElementById('editDescription').value      = data.description || '';
+        document.getElementById('editVersion').value          = data.version || '';
+        document.getElementById('editLicense').value          = data.license || 'MIT';
+        document.getElementById('editPlatform').value         = data.platform || 'Netlify';
+        document.getElementById('editStatus').value           = data.os_status || 'Stable';
+        document.getElementById('editApprovalStatus').value   = data.status || 'pending';
+        document.getElementById('editFeatured').value         = data.featured ? 'true' : 'false';
+        document.getElementById('editTags').value             = normalizeTags(data.tags).join(', ');
 
         document.getElementById('editProjectModal').classList.add('show');
     } catch (err) {
@@ -1224,30 +1242,18 @@ function hideEditModal() {
 
 async function saveEditProject() {
     const id = document.getElementById('editProjectId').textContent;
-
     if (!window.supabase || !id) return;
 
-    const name = document.getElementById('editName').value.trim();
-    const url = document.getElementById('editUrl').value.trim();
-    const icon = document.getElementById('editIcon').value.trim();
+    const name   = document.getElementById('editName').value.trim();
+    const url    = document.getElementById('editUrl').value.trim();
+    const icon   = document.getElementById('editIcon').value.trim();
     const author = document.getElementById('editAuthor').value.trim();
-    const repo = document.getElementById('editRepo').value.trim();
+    const repo   = document.getElementById('editRepo').value.trim();
 
     if (!name || !url || !icon || !author || !repo) {
         alert('Please fill in all required fields');
         return;
     }
-
-    const foundation = document.getElementById('editFoundation').value.trim();
-    const description = document.getElementById('editDescription').value.trim();
-    const version = document.getElementById('editVersion').value.trim();
-    const license = document.getElementById('editLicense').value;
-    const platform = document.getElementById('editPlatform').value;
-    const osStatus = document.getElementById('editStatus').value;
-    const approvalStatus = document.getElementById('editApprovalStatus').value;
-    const featured = document.getElementById('editFeatured').value === 'true';
-    const tagsRaw = document.getElementById('editTags').value.trim();
-    const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
 
     const payload = {
         name,
@@ -1255,25 +1261,22 @@ async function saveEditProject() {
         icon,
         author,
         repo,
-        foundation: foundation || 'N/A',
-        description: description || '',
-        version: version || '1.0',
-        license,
-        platform,
-        os_status: osStatus,
-        status: approvalStatus,
-        featured,
-        tags
+        foundation:  document.getElementById('editFoundation').value.trim() || 'N/A',
+        description: document.getElementById('editDescription').value.trim() || '',
+        version:     document.getElementById('editVersion').value.trim() || '1.0',
+        license:     document.getElementById('editLicense').value,
+        platform:    document.getElementById('editPlatform').value,
+        os_status:   document.getElementById('editStatus').value,
+        status:      document.getElementById('editApprovalStatus').value,
+        featured:    document.getElementById('editFeatured').value === 'true',
+        tags:        document.getElementById('editTags').value.trim()
+                        ? document.getElementById('editTags').value.trim().split(',').map(t => t.trim()).filter(Boolean)
+                        : []
     };
 
     try {
-        const { error } = await window.supabase
-            .from('projects')
-            .update(payload)
-            .eq('id', id);
-
+        const { error } = await window.supabase.from('projects').update(payload).eq('id', id);
         if (error) throw error;
-
         alert('✅ Project updated successfully!');
         hideEditModal();
         fetchAllProjects();
@@ -1286,17 +1289,10 @@ async function saveEditProject() {
 
 async function deleteProject(id) {
     if (!confirm('⚠️ Are you sure you want to PERMANENTLY DELETE this project? This action cannot be undone!')) return;
-
     if (!window.supabase) return;
-
     try {
-        const { error } = await window.supabase
-            .from('projects')
-            .delete()
-            .eq('id', id);
-
+        const { error } = await window.supabase.from('projects').delete().eq('id', id);
         if (error) throw error;
-
         alert('✅ Project deleted successfully!');
         fetchAllProjects();
         buildCards();
@@ -1308,15 +1304,9 @@ async function deleteProject(id) {
 
 async function approveProject(id) {
     if (!confirm('Are you sure you want to APPROVE this project to the official list?')) return;
-
     try {
-        const { error } = await window.supabase
-            .from('projects')
-            .update({ status: 'approved' })
-            .eq('id', id);
-
+        const { error } = await window.supabase.from('projects').update({ status: 'approved' }).eq('id', id);
         if (error) throw error;
-
         await fetchPendingProjects();
         buildCards();
     } catch (err) {
@@ -1326,15 +1316,9 @@ async function approveProject(id) {
 
 async function rejectProject(id) {
     if (!confirm('Are you sure you want to REJECT/DELETE this project submission?')) return;
-
     try {
-        const { error } = await window.supabase
-            .from('projects')
-            .delete()
-            .eq('id', id);
-
+        const { error } = await window.supabase.from('projects').delete().eq('id', id);
         if (error) throw error;
-
         await fetchPendingProjects();
     } catch (err) {
         alert('Project rejection error: ' + err.message);
@@ -1349,24 +1333,11 @@ document.getElementById('adminModal').addEventListener('click', function (e) {
 document.addEventListener('DOMContentLoaded', function () {
     buildCards();
 
-    const submitBtn = document.querySelector('.footer-submit-btn');
+    const submitBtn  = document.querySelector('.footer-submit-btn');
     const licenseBtn = document.querySelector('.footer-license-btn');
 
-    if (submitBtn) {
-        submitBtn.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            showSubmitModal();
-        });
-    }
-
-    if (licenseBtn) {
-        licenseBtn.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            showLicenseModal();
-        });
-    }
+    if (submitBtn)  submitBtn.addEventListener('click',  e => { e.preventDefault(); e.stopPropagation(); showSubmitModal(); });
+    if (licenseBtn) licenseBtn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); showLicenseModal(); });
 
     const user = getCurrentUser();
     updateAccountIcon(!!user);
@@ -1374,6 +1345,7 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log('👤 User session restored:', user.username);
         setTimeout(() => {
             updateAuthUI();
+            if (typeof initWebCoin === 'function') initWebCoin();
         }, 500);
     }
 });

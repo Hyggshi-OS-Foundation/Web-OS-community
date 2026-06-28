@@ -23,6 +23,42 @@
         <span>⚙️ Admin Panel</span>
     </div>
 
+    <!-- Coin Display -->
+    <div class="coin-display" id="coinDisplay" onclick="showWebCoinModal()" title="WebCoin">
+        <span id="coinBalance">0 🪙</span>
+    </div>
+
+    <!-- Coin Toast Notification -->
+    <div class="coin-toast" id="coinToast"></div>
+
+    <!-- Hero Banner -->
+    <div class="hero-banner">
+        <div class="hero-banner-glow"></div>
+        <div class="hero-banner-layout">
+            <div class="hero-sidebar">
+                <div class="hero-app-icon">🌐</div>
+                <h1 class="hero-title">Web OS</h1>
+                <p class="hero-subtitle">Built with Web OS - Web operating system for every platform, every device</p>
+                <button class="hero-btn hero-btn-primary" onclick="window.scrollTo({top: document.getElementById('cardsGrid').offsetTop - 20, behavior: 'smooth'})">
+                    See now
+                </button>
+            </div>
+            <div class="hero-preview">
+                <div class="hero-preview-card">
+                    <div class="hero-preview-images">
+                        <div class="hero-preview-img hero-preview-img-main">
+                            <div class="hero-preview-placeholder">💻</div>
+                        </div>
+                        <div class="hero-preview-img hero-preview-img-sec">
+                            <div class="hero-preview-placeholder">📱</div>
+                        </div>
+                    </div>
+                    <div class="hero-preview-caption">Web version of all OS · Every platform, one browser</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <div class="header">
             <h1>Web version of all OS</h1>
@@ -40,6 +76,8 @@
             </p>
             <p>
                 <button type="button" class="footer-link-btn" onclick="showSubmitModal()">Submit Project</button>
+                <span class="footer-sep">•</span>
+                <button type="button" class="footer-link-btn" onclick="showWebCoinModal()">🪙 WebCoin</button>
                 <span class="footer-sep">•</span>
                 <button type="button" class="footer-link-btn" onclick="showLicenseModal()">HOSL-1.3 License</button>
             </p>
@@ -305,7 +343,6 @@
             <h2 class="form-title">HOSL-1.3 – Hyggshi OS License v1.3</h2>
             <div id="licenseContent"
                 style="max-height: 70vh; overflow-y: auto; text-align: left; padding: 10px; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--card-border);">
-                <!-- Content will be loaded here -->
             </div>
             <div class="modal-buttons">
                 <button class="modal-btn modal-btn-cancel" onclick="hideLicenseModal()">Close</button>
@@ -395,10 +432,122 @@
                         style="padding: 6px 12px; font-size: 11px; background: var(--accent);"
                         onclick="openAdminApprovalPanel()">Manage Submissions</button>
                 </div>
-                <div class="modal-buttons" style="margin-top: 15px;">
+
+                <!-- WebCoin Stats & Daily Login -->
+                <div class="profile-stats">
+                    <p id="coinBalanceInline" class="coin-inline">🪙 0 coins</p>
+                    <button type="button" class="btn-daily-login" onclick="claimDailyLogin()" id="dailyLoginBtn">📅 Daily Login (+2 🪙)</button>
+                </div>
+
+                <!-- Modal Buttons -->
+                <div class="modal-buttons" style="margin-top: 15px; flex-wrap: wrap;">
                     <button type="button" class="modal-btn modal-btn-cancel" onclick="hideAccountModal()">Close</button>
+                    <button type="button" class="modal-btn modal-btn-edit-profile" onclick="showEditProfileModal()">✏️ Edit Profile</button>
                     <button type="button" class="modal-btn modal-btn-launch" onclick="signOut()">Sign Out</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WebCoin Modal -->
+    <div class="modal-overlay" id="webCoinModal">
+        <div class="modal-content modal-lg" style="max-width: 550px; text-align: center;">
+            <button class="modal-close" onclick="hideWebCoinModal()">&times;</button>
+            <h2 class="form-title">🪙 WebCoin</h2>
+            <p class="form-subtitle">Virtual currency for the Web-OS Community</p>
+
+            <div class="webcoin-balance" id="webCoinBalanceWrap">
+                <div class="wcb-amount" id="webCoinBalance">0 🪙</div>
+                <div class="wcb-label">Your Balance</div>
+            </div>
+
+            <div class="webcoin-section">
+                <div class="webcoin-row">
+                    <span>📅 Daily Check-in</span>
+                    <button type="button" class="modal-btn modal-btn-launch" onclick="claimDailyLogin()" id="dailyLoginBtn2" style="padding: 6px 16px; font-size: 12px;">📅 Daily Login (+2 🪙)</button>
+                </div>
+            </div>
+
+            <div class="webcoin-section">
+                <h3 class="wcs-title">💰 How to Earn</h3>
+                <div class="webcoin-grid">
+                    <div class="wci-item"><span>⭐</span> Rate a project <b>+5 🪙</b></div>
+                    <div class="wci-item"><span>📤</span> Submit & get approved <b>+50 🪙</b></div>
+                    <div class="wci-item"><span>🔥</span> Your project gets rated <b>+10/star 🪙</b></div>
+                    <div class="wci-item"><span>📅</span> Daily login <b>+2 🪙</b></div>
+                </div>
+            </div>
+
+            <div class="webcoin-section">
+                <h3 class="wcs-title">🛍️ Spend Coins</h3>
+                <div class="webcoin-grid">
+                    <div class="wci-item"><span>🚀</span> Boost project <b>100 🪙</b></div>
+                    <div class="wci-item"><span>🎨</span> Unlock badge <b>200 🪙</b></div>
+                    <div class="wci-item"><span>⭐</span> Featured slot <b>500 🪙</b></div>
+                </div>
+            </div>
+
+            <div class="webcoin-section">
+                <h3 class="wcs-title">🏆 Leaderboard</h3>
+                <div id="leaderboardList" style="color: var(--text-secondary);">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW: Edit Profile Modal -->
+    <div class="modal-overlay" id="editProfileModal">
+        <div class="modal-content modal-sm">
+            <button class="modal-close" onclick="hideEditProfileModal()">&times;</button>
+            <h2 class="form-title">✏️ Edit Profile</h2>
+            <p class="form-subtitle">Update your public profile information.</p>
+
+            <div class="form-grid">
+                <div class="form-group form-full">
+                    <label for="editProfileBio">Bio</label>
+                    <textarea id="editProfileBio" rows="3" placeholder="Tell us about yourself..."></textarea>
+                </div>
+                <div class="form-group form-full">
+                    <label for="editProfileColor">Profile Color</label>
+                    <div class="color-picker-row">
+                        <input type="color" id="editProfileColor" value="#e94560" class="color-picker-input">
+                        <span id="editProfileColorHex" class="color-picker-hex">#e94560</span>
+                        <div class="color-presets">
+                            <span class="color-preset" style="background:#e94560;" data-color="#e94560" onclick="setProfileColor('#e94560')" title="Red"></span>
+                            <span class="color-preset" style="background:#2563eb;" data-color="#2563eb" onclick="setProfileColor('#2563eb')" title="Blue"></span>
+                            <span class="color-preset" style="background:#16a34a;" data-color="#16a34a" onclick="setProfileColor('#16a34a')" title="Green"></span>
+                            <span class="color-preset" style="background:#9333ea;" data-color="#9333ea" onclick="setProfileColor('#9333ea')" title="Purple"></span>
+                            <span class="color-preset" style="background:#ea580c;" data-color="#ea580c" onclick="setProfileColor('#ea580c')" title="Orange"></span>
+                            <span class="color-preset" style="background:#0891b2;" data-color="#0891b2" onclick="setProfileColor('#0891b2')" title="Cyan"></span>
+                            <span class="color-preset" style="background:#db2777;" data-color="#db2777" onclick="setProfileColor('#db2777')" title="Pink"></span>
+                            <span class="color-preset" style="background:#ca8a04;" data-color="#ca8a04" onclick="setProfileColor('#ca8a04')" title="Yellow"></span>
+                        </div>
+                    </div>
+                    <!-- Live avatar preview -->
+                    <div class="profile-preview-wrap">
+                        <div class="profile-preview-label">Preview</div>
+                        <div class="profile-preview-banner" id="previewBanner"></div>
+                        <div class="profile-preview-avatar" id="previewAvatar"></div>
+                        <div class="profile-preview-name" id="previewName"></div>
+                    </div>
+                </div>
+                <div class="form-group form-full">
+                    <label>Change Password <span style="font-weight:400; color:var(--text-muted); font-size:12px;">(leave blank to keep current)</span></label>
+                    <div class="password-wrapper" style="margin-bottom: 10px;">
+                        <input type="password" id="editProfilePassword" placeholder="New password" minlength="6">
+                        <span class="password-toggle" onclick="togglePassword('editProfilePassword', this)">👁️</span>
+                    </div>
+                    <div class="password-wrapper">
+                        <input type="password" id="editProfilePasswordConfirm" placeholder="Confirm new password" minlength="6">
+                        <span class="password-toggle" onclick="togglePassword('editProfilePasswordConfirm', this)">👁️</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-status" id="editProfileStatus"></div>
+
+            <div class="modal-buttons" style="margin-top: 20px;">
+                <button type="button" class="modal-btn modal-btn-cancel" onclick="hideEditProfileModal()">Cancel</button>
+                <button type="button" class="modal-btn modal-btn-launch" onclick="saveProfile()">💾 Save Changes</button>
             </div>
         </div>
     </div>
@@ -410,13 +559,11 @@
             <h2 class="form-title">🛡️ Admin OS Approvals</h2>
             <p class="form-subtitle">Manage Web OS projects in the community.</p>
 
-            <!-- Tabs -->
             <div class="admin-tabs">
                 <button class="admin-tab active" onclick="switchAdminTab('pending', this)">⏳ Pending Approval</button>
                 <button class="admin-tab" onclick="switchAdminTab('all', this)">📋 All Projects</button>
             </div>
 
-            <!-- Tab: Pending -->
             <div id="adminTabPending" class="admin-tab-content">
                 <div class="admin-table-container">
                     <table class="admin-table">
@@ -438,7 +585,6 @@
                 </div>
             </div>
 
-            <!-- Tab: All Projects -->
             <div id="adminTabAll" class="admin-tab-content" style="display:none;">
                 <div style="margin-bottom:10px; display:flex; gap:8px; align-items:center;">
                     <input type="text" id="adminSearchInput" placeholder="🔍 Search projects..." oninput="filterAdminList()"
@@ -593,6 +739,7 @@
 
     <script src="os-list.js"></script>
     <script src="supabase.js"></script>
+    <script src="webcoin.js"></script>
     <script src="script.js"></script>
 </body>
 
